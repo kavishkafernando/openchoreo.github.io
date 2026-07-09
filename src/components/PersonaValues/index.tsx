@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import React, { useState } from "react";
 import clsx from "clsx";
 import SectionHeader from "@site/src/components/common/SectionHeader";
-import styles from "./styles.modules.css";
+import styles from "./styles.module.css";
 
 type ComparisonRow = {
   before: string;

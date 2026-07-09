@@ -24,10 +24,10 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://kavishkafernando.github.io/',
+  url: 'https://kavishkafernando.github.io/openchoreo.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/openchoreo.github.io/',
+  baseUrl: '/',
   // Set true for GitHub pages deployment.
   trailingSlash: true,
 
