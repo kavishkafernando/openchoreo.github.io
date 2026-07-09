@@ -1,101 +1,204 @@
-import type {ReactNode} from 'react';
-import React from 'react';
-import useBaseUrl from '@docusaurus/useBaseUrl';
-import SectionHeader from '@site/src/components/common/SectionHeader';
-import Button from '@site/src/components/common/Button';
-import styles from './styles.module.css';
+import type { ReactNode } from "react";
+import React, { useState } from "react";
+import Link from "@docusaurus/Link";
+import useBaseUrl from "@docusaurus/useBaseUrl";
+import clsx from "clsx";
+import SectionHeader from "@site/src/components/common/SectionHeader";
+import styles from "./styles.module.css";
 
-/**
- * TypeScript Interface for Installation Option
- * Each option has a title, description, list of features, and link
- */
-interface InstallOption {
-  title: string;
-  subtitle: string;
-  features: string[];
-  buttonText: string;
-  buttonLink: string;
-  className: string;
-}
+const INSTALL_COMMAND = "openchoreo install";
 
-/**
- * Installation options data
- * We define two ways to get started with OpenChoreo
- */
-const installOptions: InstallOption[] = [
-  {
-    title: 'Quick Start',
-    subtitle: 'Run OpenChoreo locally with a single command.',
-    features: [
-      'Comes with everything preinstalled.',
-      'Safe to explore and easy to clean up when you\'re done.',
-      '~10 minutes to a hands-on experience with OpenChoreo.'
-    ],
-    buttonText: 'Quick Start Guide',
-    buttonLink: '/docs/getting-started/quick-start-guide/',
-    className: 'quickStart'
-  },
-  {
-    title: 'Install on Your Cluster',
-    subtitle: 'Set up OpenChoreo on your own Kubernetes cluster.',
-    features: [
-      'Use Helm to install the Control, Data, Workflow and Observability Planes.',
-      'Works with k3d locally, or on any Kubernetes cluster (cloud or on-premise).',
-      'A good option if you want to understand how things are wired under the hood.'
-    ],
-    buttonText: 'Full Installation Guide',
-    buttonLink: '/docs/next/getting-started/try-it-out/on-k3d-locally/',
-    className: 'fullInstall'
-  }
+type TerminalLine = {
+  type: "prompt" | "success" | "sub" | "plain";
+  text: string;
+};
+
+const terminalLines: TerminalLine[] = [
+  { type: "prompt", text: "openchoreo install" },
+  { type: "success", text: "Checking prerequisites" },
+  { type: "success", text: "Creating namespace" },
+  { type: "success", text: "Installing OpenChoreo" },
+  { type: "sub", text: "Control Plane" },
+  { type: "sub", text: "Developer Portal" },
+  { type: "sub", text: "Observability" },
+  { type: "sub", text: "Gateway & Ingress" },
+  { type: "sub", text: "AI Assistant" },
+  { type: "success", text: "Installation complete!" },
 ];
 
-/**
- * Individual Install Card Component
- * Renders a card with installation option details
- */
-function InstallCard({option}: { option: InstallOption }) {
+const LightningIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ClusterIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+  </svg>
+);
+
+const BrowserIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M3 8h18" stroke="currentColor" strokeWidth="1.6" />
+    <circle cx="6" cy="6" r="0.6" fill="currentColor" />
+    <circle cx="8.4" cy="6" r="0.6" fill="currentColor" />
+  </svg>
+);
+
+type CardLink = {
+  label: string;
+  href: string;
+};
+
+type StartCard = {
+  title: string;
+  description: string;
+  links: CardLink[];
+  icon: ReactNode;
+};
+
+// TODO: "In your environment" and "Open playground" are placeholders ("#") —
+// swap in the real doc/playground URLs before shipping.
+const cards: StartCard[] = [
+  {
+    title: "Quick start",
+    description: "Run OpenChoreo locally with a single command.",
+    links: [{ label: "Quick start guide", href: "/docs/getting-started/quick-start-guide/" }],
+    icon: <LightningIcon />,
+  },
+  {
+    title: "Install on your cluster",
+    description: "Set up OpenChoreo on your own Kubernetes cluster.",
+    links: [
+      { label: "In your environment", href: "#" },
+      {
+        label: "Locally on k3d",
+        href: "/docs/next/getting-started/try-it-out/on-k3d-locally/",
+      },
+    ],
+    icon: <ClusterIcon />,
+  },
+  {
+    title: "Try it in your browser",
+    description: "No install needed, explore a live OpenChoreo environment in minutes.",
+    links: [{ label: "Open playground", href: "#" }],
+    icon: <BrowserIcon />,
+  },
+];
+
+function Terminal() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(INSTALL_COMMAND);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard API unavailable — fail silently, button just won't confirm.
+    }
+  };
+
   return (
-    <div className={`${styles.card} ${styles[option.className]}`}>
-      <div className={styles.cardContent}>
-        <h3 className={styles.cardTitle}>{option.title}</h3>
-        <p className={styles.cardSubtitle}>{option.subtitle}</p>
-
-        {/* Features list */}
-        <ul className={styles.featuresList}>
-          {option.features.map((feature, index) => (
-            <li key={index}>{feature}</li>
-          ))}
-        </ul>
+    <div className={styles.terminal}>
+      <div className={styles.terminalChrome}>
+        <span className={styles.terminalTab}>Install</span>
+        <button type="button" className={styles.copyButton} onClick={handleCopy}>
+          {copied ? "Copied!" : "Copy"}
+        </button>
       </div>
+      <pre className={styles.terminalBody}>
+        <code>
+          {terminalLines.map((line, index) => {
+            if (line.type === "prompt") {
+              return (
+                <div key={index} className={styles.line}>
+                  <span className={styles.prompt}>$</span> {line.text}
+                </div>
+              );
+            }
+            if (line.type === "success") {
+              return (
+                <div key={index} className={clsx(styles.line, styles.success)}>
+                  &#10003; {line.text}
+                </div>
+              );
+            }
+            return (
+              <div key={index} className={clsx(styles.line, styles.sub)}>
+                - {line.text}
+              </div>
+            );
+          })}
+          <div className={styles.line}>
+            Open{" "}
+            <span className={styles.highlight}>http://localhost:8080</span> in
+            your browser.
+          </div>
+        </code>
+      </pre>
+    </div>
+  );
+}
 
-      {/* CTA Button - positioned at bottom */}
-      <Button
-        to={useBaseUrl(option.buttonLink)}>
-        {option.buttonText}
-      </Button>
+function StartCardItem({ card }: { card: StartCard }) {
+  const withBaseUrl = useBaseUrl;
+
+  return (
+    <div className={styles.card}>
+      <div className={styles.cardHeader}>
+        <span className={styles.cardIconBox}>{card.icon}</span>
+        <h3 className={styles.cardTitle}>{card.title}</h3>
+      </div>
+      <p className={styles.cardDescription}>{card.description}</p>
+      <div className={styles.cardLinks}>
+        {card.links.map((link) => (
+          <Link
+            key={link.label}
+            to={link.href === "#" ? link.href : withBaseUrl(link.href)}
+            className={styles.cardLink}
+          >
+            {link.label}
+            <span aria-hidden="true">&#8594;</span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
 
 /**
- * Main GetStarted Component
- * Renders the "Get Started with OpenChoreo" section
+ * GetStarted Component ("Get Started with OpenChoreo")
+ * A black terminal panel on the left showing the install output, with a
+ * vertical stack of three cards on the right pointing to the quick start
+ * guide, cluster install options, and the browser playground — modeled
+ * after agentgateway.dev's getting-started section.
  */
 export default function GetStarted(): ReactNode {
   return (
     <section className={styles.section}>
       <div className="container">
         <SectionHeader title="Get Started with OpenChoreo">
-          <p>
-            Skip the setup headaches. Pick what works for you and get hands-on.
-          </p>
         </SectionHeader>
 
-        {/* Installation Cards Grid */}
-        <div className={styles.grid}>
-          {installOptions.map((option, index) => (
-            <InstallCard key={index} option={option}/>
-          ))}
+        <div className={styles.layout}>
+          <Terminal />
+
+          <div className={styles.grid}>
+            {cards.map((card) => (
+              <StartCardItem key={card.title} card={card} />
+            ))}
+          </div>
         </div>
       </div>
     </section>

@@ -1,67 +1,150 @@
-/* Grid container for cards */
+.section {
+  padding: 4rem 0;
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  max-width: 1000px;
-  margin: 0 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0 2rem;
 }
 
-/* Individual card */
 .card {
-  text-align: center;
   padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 12px;
+  background: var(--ifm-background-surface-color);
 }
 
-/* Community button with icon */
-.communityButton {
+.cardIconBox {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
+  color: var(--ifm-color-primary);
 }
 
-/* Button icon */
-.buttonIcon {
-  width: 24px;
-  height: 24px;
+.cardIconBox svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.cardIconImage {
+  width: 1.2rem;
+  height: 1.2rem;
   object-fit: contain;
 }
 
-
-/* Description text */
-.description {
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: var(--ifm-color-emphasis-700);
-  margin: 0 0 0.5rem 0;
-  max-width: 300px;
+.cardTitle {
+  margin: 0 0 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ifm-heading-color);
 }
 
-/* Tablet responsive */
-@media screen and (max-width: 996px) {
+.cardDescription {
+  margin: 0 0 1.1rem;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.cardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cardLink:hover {
+  text-decoration: underline;
+}
+
+.callout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--ifm-color-primary) 25%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ifm-color-primary) 6%, transparent);
+}
+
+.calloutIconBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-primary);
+}
+
+.calloutIconBox svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.calloutTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ifm-heading-color);
+}
+
+.calloutDescription {
+  margin: 0 0 0.75rem;
+  max-width: 640px;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.calloutCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.calloutCta:hover {
+  text-decoration: underline;
+}
+
+html[data-theme="dark"] .card {
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+html[data-theme="dark"] .cardDescription,
+html[data-theme="dark"] .calloutDescription {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+html[data-theme="dark"] .cardTitle,
+html[data-theme="dark"] .calloutTitle {
+  color: #f5f5f7;
+}
+
+@media screen and (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
-    gap: 2rem;
-    max-width: 500px;
-  }
-
-  .card {
-    padding: 1rem;
   }
 }
 
-/* Mobile responsive */
-@media screen and (max-width: 768px) {
-  .grid {
-    padding: 0 1rem;
-  }
-
-  .description {
-    font-size: 0.9rem;
+@media screen and (max-width: 600px) {
+  .callout {
+    flex-direction: column;
   }
 }

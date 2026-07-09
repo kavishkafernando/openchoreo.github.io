@@ -1,19 +1,22 @@
-import type { ReactNode } from "react";
-import React from "react";
-import Layout from "@theme/Layout";
-import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import type { ReactNode } from 'react';
+import React from 'react';
+import Layout from '@theme/Layout';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 // Import all homepage components
-import HomepageHero from "@site/src/components/HomepageHero";
-import WhatIsOpenChoreo from "@site/src/components/WhatIsOpenChoreo";
-import BenefitsCards from "@site/src/components/BenefitsCards";
-import GetStarted from "@site/src/components/GetStarted";
-import TechStack from "@site/src/components/TechStack";
-import Community from "@site/src/components/Community";
-import CNCF from "@site/src/components/CNCF";
-import Ecosystem from "@site/src/components/Ecosystem";
+import HomepageHero from '@site/src/components/HomepageHero';
+import WhatIsOpenChoreo from '@site/src/components/WhatIsOpenChoreo';
+import BenefitsCards from '@site/src/components/BenefitsCards';
+import GetStarted from '@site/src/components/GetStarted';
+import TechStack from '@site/src/components/TechStack';
+import Community from '@site/src/components/Community';
+import CNCF from '@site/src/components/CNCF';
+import Ecosystem from '@site/src/components/Ecosystem';
+import PersonaValues from '@site/src/components/PersonaValues';
+import HumansAndAgents from '@site/src/components/HumansAndAgents';
+import Divider from '@site/src/components/Divider';
 
-import styles from "./index.module.css";
+import styles from './index.module.css';
 
 /**
  * Main Homepage Component
@@ -25,14 +28,18 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.tagline}
-      description="A complete, open-source developer platform for Kubernetes, ready to use from day one, built to integrate with your stack."
+      description='A complete, open-source developer platform for Kubernetes, ready to use from day one, built to integrate with your stack.'
     >
       <div className={styles.homepage}>
         <HomepageHero />
         <WhatIsOpenChoreo />
+        <Divider />
         <BenefitsCards />
+        <Divider />
+        <PersonaValues />
         <GetStarted />
-        <TechStack />
+        {/* <TechStack /> */}
+        <HumansAndAgents />
         <Ecosystem />
         <Community />
         <CNCF />

@@ -1,0 +1,27 @@
+.divider {
+  position: relative;
+  height: 5rem;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.divider::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+  background-size: 2.75rem 2.75rem;
+  mask-image: radial-gradient(
+    ellipse 70% 100% at 50% 50%,
+    rgba(0, 0, 0, 0.9),
+    transparent 85%
+  );
+}
+
+html[data-theme="dark"] .divider::before {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+}

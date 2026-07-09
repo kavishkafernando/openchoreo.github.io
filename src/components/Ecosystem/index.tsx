@@ -3,97 +3,68 @@ import styles from "./styles.module.css";
 import SectionHeader from "../common/SectionHeader";
 import Button from "@site/src/components/common/Button";
 
-type StackLogo = {
+type Integration = {
   name: string;
-  logos: string[];
-  x: number;
-  y: number;
-  lineX?: number;
-  lineY?: number;
+  logo: string;
 };
 
-const stackLogos: StackLogo[] = [
+type Category = {
+  title: string;
+  items: Integration[];
+};
+
+const categories: Category[] = [
   {
-    name: "Identity providers",
-    logos: [
-      "/img/logos/ecosystem-logo-okta.webp",
-      "/img/logos/ecosystem-logo-keycloak.webp",
-      "/img/logos/ecosystem-logo-ory.webp",
+    title: "Infrastructure",
+    items: [
+      { name: "Crossplane", logo: "/img/logos/ecosystem-logo-crossplane.webp" },
+      { name: "OpenTofu", logo: "/img/logos/ecosystem-logo-opentofu.webp" },
+      { name: "Pulumi", logo: "/img/logos/ecosystem-logo-pulumi.webp" },
     ],
-    x: 50,
-    y: 6,
-    lineX: 50,
-    lineY: 13,
   },
   {
-    name: "CI systems",
-    logos: [
-      "/img/logos/tech-logo-argo.webp",
-      "/img/logos/ecosystem-logo-githubactions.webp",
-      "/img/logos/ecosystem-logo-jenkins.webp",
+    title: "Identity",
+    items: [
+      { name: "Okta", logo: "/img/logos/ecosystem-logo-okta.webp" },
+      { name: "Keycloak", logo: "/img/logos/ecosystem-logo-keycloak.webp" },
+      { name: "Ory", logo: "/img/logos/ecosystem-logo-ory.webp" },
     ],
-    x: 76,
-    y: 18,
   },
   {
-    name: "GitOps integrations",
-    logos: [
-      "/img/logos/tech-logo-flux.svg",
-      "/img/logos/ecosystem-logo-weave.webp",
-      "/img/logos/tech-logo-argo.webp",
+    title: "GitOps and CI",
+    items: [
+      { name: "Argo", logo: "/img/logos/tech-logo-argo.webp" },
+      { name: "Flux", logo: "/img/logos/tech-logo-flux.svg" },
+      { name: "GitHub Actions", logo: "/img/logos/ecosystem-logo-githubactions.webp" },
+      { name: "Jenkins", logo: "/img/logos/ecosystem-logo-jenkins.webp" },
+      { name: "Weave", logo: "/img/logos/ecosystem-logo-weave.webp" },
     ],
-    x: 91,
-    y: 47,
   },
   {
-    name: "API gateways",
-    logos: [
-      "/img/logos/ecosystem-logo-wso2.webp",
-      "/img/logos/tech-logo-kgateway.svg",
-      "/img/logos/ecosystem-logo-apisix.webp",
+    title: "API and AI gateways",
+    items: [
+      { name: "WSO2", logo: "/img/logos/ecosystem-logo-wso2.webp" },
+      { name: "kgateway", logo: "/img/logos/tech-logo-kgateway.svg" },
+      { name: "APISIX", logo: "/img/logos/ecosystem-logo-apisix.webp" },
+      { name: "agentgateway", logo: "/img/logos/ecosystem-logo-agentgateway.webp" },
+      { name: "Envoy", logo: "/img/logos/ecosystem-logo-envoy.webp" },
     ],
-    x: 76,
-    y: 78,
   },
   {
-    name: "AI gateways",
-    logos: [
-      "/img/logos/ecosystem-logo-agentgateway.webp",
-      "/img/logos/ecosystem-logo-wso2.webp",
-      "/img/logos/ecosystem-logo-envoy.webp",
+    title: "Observability",
+    items: [
+      { name: "OpenSearch", logo: "/img/logos/tech-logo-opensearch.webp" },
+      { name: "Prometheus", logo: "/img/logos/tech-logo-prometheus.webp" },
+      { name: "OpenTelemetry", logo: "/img/logos/tech-logo-opentelemetry.svg" },
     ],
-    x: 50,
-    y: 92,
   },
   {
-    name: "Observability",
-    logos: [
-      "/img/logos/tech-logo-opensearch.webp",
-      "/img/logos/tech-logo-prometheus.webp",
-      "/img/logos/tech-logo-opentelemetry.svg",
+    title: "Network and security",
+    items: [
+      { name: "Cilium", logo: "/img/logos/tech-logo-cilium.webp" },
+      { name: "Istio", logo: "/img/logos/ecosystem-logo-istio.webp" },
+      { name: "Linkerd", logo: "/img/logos/ecosystem-logo-linkerd.webp" },
     ],
-    x: 24,
-    y: 78,
-  },
-  {
-    name: "Network & Security",
-    logos: [
-      "/img/logos/tech-logo-cilium.webp",
-      "/img/logos/ecosystem-logo-istio.webp",
-      "/img/logos/ecosystem-logo-linkerd.webp",
-    ],
-    x: 9,
-    y: 47,
-  },
-  {
-    name: "Infrastructure provisioners",
-    logos: [
-      "/img/logos/ecosystem-logo-crossplane.webp",
-      "/img/logos/ecosystem-logo-opentofu.webp",
-      "/img/logos/ecosystem-logo-pulumi.webp",
-    ],
-    x: 24,
-    y: 18,
   },
 ];
 
@@ -101,65 +72,37 @@ export default function Ecosystem(): JSX.Element {
   return (
     <section className={styles.blade}>
       <div className={styles.inner}>
-        <SectionHeader title="Built to Integrate With Your Stack">
+        <SectionHeader title="OpenChoreo Ecosystem: Built to Integrate With Your Stack">
           <p>
             OpenChoreo’s modular architecture lets you integrate, extend, and
-            customize platform services without rebuilding your foundation.
+            customize your IDP without adhoc glue scripts or re-architecting
+            your platform foundations.
           </p>
-
-          <div className={styles.actions}>
-            <Button to="/ecosystem/">Explore the Ecosystem</Button>
-          </div>
         </SectionHeader>
 
-        <div
-          className={styles.graphic}
-          aria-label="OpenChoreo ecosystem integrations"
-        >
-          <div className={styles.orbitOuter} />
-          <div className={styles.orbitInner} />
-
-          <svg
-            className={styles.lines}
-            viewBox="0 0 100 100"
-            aria-hidden="true"
-          >
-            {stackLogos.map((item) => (
-              <line
-                key={item.name}
-                x1="50"
-                y1="50"
-                x2={item.lineX ?? item.x}
-                y2={item.lineY ?? item.y}
-              />
-            ))}
-          </svg>
-
-          <div className={styles.center}>
-            <img src="/img/openchoreo-logo.svg" alt="OpenChoreo" />
-          </div>
-
-          {stackLogos.map((item) => (
-            <div
-              key={item.name}
-              className={styles.node}
-              style={
-                {
-                  "--x": `${item.x}%`,
-                  "--y": `${item.y}%`,
-                } as React.CSSProperties
-              }
-            >
-              <span className={styles.logoCluster}>
-                {item.logos.map((logo) => (
-                  <span key={logo} className={styles.logo}>
-                    <img src={logo} alt="" loading="lazy" />
+        <div className={styles.categories}>
+          {categories.map((category) => (
+            <div key={category.title} className={styles.category}>
+              <span className={styles.categoryTitle}>{category.title}</span>
+              <div className={styles.chipRow}>
+                {category.items.map((item) => (
+                  <span key={item.name} className={styles.chip}>
+                    <img
+                      src={item.logo}
+                      alt=""
+                      className={styles.chipLogo}
+                      loading="lazy"
+                    />
+                    <span>{item.name}</span>
                   </span>
                 ))}
-              </span>
-              <span className={styles.label}>{item.name}</span>
+              </div>
             </div>
           ))}
+        </div>
+
+        <div className={styles.actions}>
+          <Button to="/ecosystem/">Explore the Ecosystem</Button>
         </div>
       </div>
     </section>
