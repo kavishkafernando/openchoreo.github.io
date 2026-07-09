@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { useBaseUrlUtils } from '@docusaurus/useBaseUrl';
 import SectionHeader from '@site/src/components/common/SectionHeader';
@@ -152,6 +152,13 @@ export default function HumansAndAgents(): ReactNode {
   const { withBaseUrl } = useBaseUrlUtils();
   const activeAgent = agents[activeIndex];
 
+    useEffect(() => {
+    agents.forEach((agent) => {
+      const preloadImg = new Image();
+      preloadImg.src = withBaseUrl(agent.image);
+    });
+  }, [withBaseUrl]);
+
   return (
     <section className={styles.section}>
       <div className='container'>
@@ -197,7 +204,6 @@ export default function HumansAndAgents(): ReactNode {
                   src={withBaseUrl(activeAgent.image)}
                   alt={activeAgent.imageAlt}
                   className={styles.mediaImage}
-                  loading='lazy'
                   decoding='async'
                 />
               </div>

@@ -19,7 +19,7 @@
 .text {
   margin: 0;
   color: var(--ifm-color-emphasis-800);
-  font-size: 1.05rem;
+  font-size: var(--homepage-text-body);
 }
 
 .text a {
@@ -36,7 +36,7 @@
 .madeWith {
   margin: 0;
   color: var(--ifm-color-emphasis-600);
-  font-size: 1rem;
+  font-size: var(--homepage-text-body); 
 }
 
 .madeWith a {

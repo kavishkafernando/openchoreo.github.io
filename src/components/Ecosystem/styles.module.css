@@ -30,7 +30,7 @@
 .categoryTitle {
   flex-shrink: 0;
   width: 180px;
-  font-size: 1rem;
+  font-size: var(--homepage-heading-card);
   font-weight: 700;
   color: var(--ifm-color-emphasis-800);
 }
@@ -56,7 +56,7 @@
   border-radius: 999px;
   background: var(--ifm-background-surface-color);
   color: var(--ifm-color-emphasis-800);
-  font-size: 0.88rem;
+  font-size: var(--homepage-text-caption);
   font-weight: 600;
 }
 

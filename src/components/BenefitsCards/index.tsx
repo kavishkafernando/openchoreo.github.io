@@ -19,7 +19,7 @@ const ARCHITECTURE_IMAGE_ALT = 'OpenChoreo high-level architecture diagram';
 
 const benefits: Benefit[] = [
   {
-    title: 'Developers ship without waiting on platform teams',
+    title: 'Developer self-service with golden paths',
     description:
       'Higher-level abstractions and golden paths give developers self-service access to build, deploy, and operate without managing Kubernetes complexity.',
     ctaLabel: 'Learn more',
@@ -37,7 +37,7 @@ const benefits: Benefit[] = [
     imageAlt: ARCHITECTURE_IMAGE_ALT,
   },
   {
-    title: 'Your platform standards, enforced automatically',
+    title: 'Extensible platform standards, enforced automatically',
     description:
       'Declarative APIs for environments, component types, gateways, pipelines, and workflows mean best practices are built in, not documented and hoped for.',
     ctaLabel: 'Learn more',

@@ -47,7 +47,7 @@
 
 .nodeTitle {
   margin: 0 0 0.3rem;
-  font-size: 1.05rem;
+  font-size: var(--homepage-heading-card);
   font-weight: 700;
   line-height: 1.3;
   color: var(--ifm-heading-color);
@@ -57,7 +57,7 @@
   margin: 0 auto;
   max-width: 220px;
   color: var(--ifm-color-emphasis-700);
-  font-size: 0.9rem;
+  font-size: var(--homepage-text-body);
   line-height: 1.5;
 }
 
@@ -69,7 +69,7 @@
   display: block;
   margin-bottom: 1.25rem;
   color: var(--ifm-color-emphasis-600);
-  font-size: 0.8rem;
+  font-size: var(--homepage-text-label);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -110,7 +110,7 @@
 
 .capabilityLabel {
   color: var(--ifm-color-emphasis-800);
-  font-size: 0.88rem;
+  font-size: var(--homepage-text-caption);
   font-weight: 500;
   line-height: 1.35;
 }

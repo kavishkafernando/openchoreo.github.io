@@ -59,13 +59,13 @@
 
 .beforeText {
   color: var(--ifm-color-emphasis-600);
-  font-size: 0.95rem;
+  font-size: var(--homepage-text-body); 
   line-height: 1.5;
 }
 
 .afterText {
   color: var(--ifm-color-emphasis-900);
-  font-size: 0.95rem;
+  font-size: var(--homepage-text-body); 
   font-weight: 600;
   line-height: 1.5;
 }

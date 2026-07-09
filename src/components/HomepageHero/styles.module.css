@@ -62,7 +62,7 @@
   border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 10px;
   color: var(--ifm-color-emphasis-700);
-  font-size: 0.88rem;
+  font-size: var(--homepage-text-caption);
   font-weight: 600;
   text-decoration: none;
   transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;

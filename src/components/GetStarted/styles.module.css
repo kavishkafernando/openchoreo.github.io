@@ -13,7 +13,7 @@
   align-items: center;
   gap: 0.4rem;
   color: var(--ifm-color-primary);
-  font-size: 0.9rem;
+  font-size: var(--homepage-text-cta);
   font-weight: 700;
   text-decoration: none;
 }
@@ -148,7 +148,7 @@
 
 .cardTitle {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--homepage-heading-card);
   font-weight: 700;
   margin-top: 0.8rem;
   line-height: 1;
@@ -159,7 +159,7 @@
   flex: 1;
   margin: 0 0 1.1rem;
   color: var(--ifm-color-emphasis-700);
-  font-size: 0.92rem;
+  font-size: var(--homepage-text-body);
   line-height: 1.55;
 }
 
@@ -176,7 +176,7 @@
   align-items: center;
   gap: 0.4rem;
   color: var(--ifm-color-primary);
-  font-size: 0.9rem;
+  font-size: var(--homepage-text-cta);
   font-weight: 700;
   text-decoration: none;
 }
