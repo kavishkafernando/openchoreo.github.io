@@ -259,7 +259,7 @@ const config: Config = {
               label: 'Observability',
             },
             {
-              to: '/explore/ai-capabilities',
+              to: '/explore/agentic-developer-platform',
               label: 'Agentic Developer Platform',
             },
           ],
