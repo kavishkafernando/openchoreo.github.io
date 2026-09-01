@@ -17,7 +17,7 @@ The guide is **organized by feature**. Sections 1–3 are setup. Section 4 (**Co
 
 :::info
 
-OpenChoreo plugins are published to **GitHub Packages** under the [`@openchoreo`](https://github.com/orgs/openchoreo/packages?repo_name=backstage-plugins) scope. You install them with `yarn add` once your package manager is authenticated against `https://npm.pkg.github.com` — see [Authenticate to GitHub Packages](#authenticate-to-github-packages) below.
+OpenChoreo plugins are published to the **public npm registry** under the [`@openchoreo`](https://www.npmjs.com/org/openchoreo) scope. You install them with `yarn add` — no registry configuration and no authentication required.
 
 :::
 
@@ -72,11 +72,11 @@ yarn install
 
 …to align before adding the OpenChoreo packages.
 
-## 3. Authenticate to GitHub Packages {#authenticate-to-github-packages}
+## 3. Pre-approve the `@openchoreo` scope {#preapprove-openchoreo-scope}
 
-GitHub Packages requires authentication even for `read:packages`-only operations. Create a [classic Personal Access Token](https://github.com/settings/tokens/new) with the `read:packages` scope, then wire it into your package manager.
+`@openchoreo/*` packages come from the public npm registry, so **no authentication is needed** — nothing to configure for access.
 
-**Yarn 4 (Berry)** — the current `create-app` scaffold's `.yarnrc.yml` enables a 3-day [npm minimum-age gate](https://yarnpkg.com/configuration/yarnrc#npmMinimalAgeGate) that blocks newly published packages. Update `.yarnrc.yml` to both add the `@openchoreo` scope auth **and** pre-approve the scope so fresh OpenChoreo releases install immediately:
+There is one thing worth configuring. The current `create-app` scaffold's `.yarnrc.yml` enables a 3-day [npm minimum-age gate](https://yarnpkg.com/configuration/yarnrc#npmMinimalAgeGate), which blocks packages published within the last three days. Pre-approve the scope so a fresh OpenChoreo release installs immediately instead of failing for three days after it ships:
 
 ```yaml title=".yarnrc.yml"
 nodeLinker: node-modules
@@ -86,17 +86,19 @@ npmPreapprovedPackages:
   - "@openchoreo/*"
 
 yarnPath: .yarn/releases/yarn-4.13.0.cjs
-
-npmScopes:
-  openchoreo:
-    npmRegistryServer: "https://npm.pkg.github.com"
-    npmAlwaysAuth: true
-    npmAuthToken: "${GITHUB_PACKAGES_TOKEN}"
 ```
 
-…then `export GITHUB_PACKAGES_TOKEN=<your-pat>` before running `yarn install`. Berry expands the `${...}` placeholder from the environment so the token never lands in the repo.
+:::tip Verifying what you installed
 
-In **CI**, GitHub Actions can use the auto-issued `GITHUB_TOKEN` instead of a PAT, provided the workflow has `permissions: { packages: read }` and the running repo is in (or a fork of) an org the package is published from.
+Releases from `1.3.0` onward are published from CI with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) and carry a signed [provenance attestation](https://docs.npmjs.com/generating-provenance-statements) tying the tarball to the workflow run that built it. Check your whole dependency tree with:
+
+```bash
+npm audit signatures
+```
+
+Versions `1.2.x` and earlier were migrated from GitHub Packages and have no attestation. Versions older than `1.1.0` were not migrated and remain available only from [GitHub Packages](https://github.com/orgs/openchoreo/packages?repo_name=backstage-plugins), which is frozen and receives no new releases.
+
+:::
 
 ---
 
@@ -812,7 +814,7 @@ If anything misbehaves at any step, see [Troubleshooting](./troubleshooting.mdx)
 
 ## 9. Legacy frontend system (fallback) {#9-legacy-frontend-system-fallback}
 
-If your Backstage host is scaffolded with `--legacy` (or you have heavy `EntityPage.tsx` customization you want to keep), follow the legacy wiring below instead of Sections 4.3 through 7. Sections 1–3 and 4.1–4.2 (prereqs, resolutions, GitHub Packages auth, package install, backend wiring) are identical.
+If your Backstage host is scaffolded with `--legacy` (or you have heavy `EntityPage.tsx` customization you want to keep), follow the legacy wiring below instead of Sections 4.3 through 7. Sections 1–3 and 4.1–4.2 (prereqs, resolutions, scope pre-approval, package install, backend wiring) are identical.
 
 The legacy install registers each plugin's default export via `createApp({ apis, plugins, bindRoutes })` and manually mounts every entity tab into `components/catalog/EntityPage.tsx`.
 
