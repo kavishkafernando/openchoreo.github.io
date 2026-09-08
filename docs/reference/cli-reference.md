@@ -409,6 +409,52 @@ occ version
 
 ---
 
+## Dependency Tunnelling
+
+### remote
+
+Tunnel one or more workloads' dependencies to your machine for local development. Resolves each workload's declared endpoint and resource dependencies for an environment, opens a local TCP listener for each one, and starts a subshell whose environment points at those listeners. See [Local Development](../developer-guide/local-development.md).
+
+**Usage:**
+
+```bash
+occ remote <workload.yaml> [<workload.yaml>...] [flags]
+```
+
+**Flags:**
+
+- `--env` - Target environment to resolve dependencies for (required)
+- `-n, --namespace` - Namespace of the consuming component. Falls back to each workload file's `metadata.namespace`
+- `--print-env` - Print the resolved env bindings and hold the tunnels open instead of spawning a subshell. Values read from the data plane are redacted, and on an interactive terminal `occ` asks once whether to print them in full
+- `--show-secrets` - With `--print-env`, print those values in full with no prompt. Required to get real values out of a non-interactive `--print-env`, since a pipe cannot answer the prompt. Mutually exclusive with `--no-secrets`
+- `--no-secrets` - Do not fetch Secret- or ConfigMap-backed dependency values. They are reported as unresolved instead, so no credential enters the local process
+- `--local` - Wire a cross-linked dependency's provider component to a local `host:port` instead of tunnelling it (`component=host:port`, repeatable)
+
+**Examples:**
+
+```bash
+# Tunnel a workload's dependencies and drop into a subshell
+occ remote my-service/workload.yaml --namespace default --env development
+
+# Print bindings for use with direnv or an IDE run config, without a subshell
+occ remote my-service/workload.yaml --env development --print-env
+
+# Same, but print fetched Secret/ConfigMap values in full with no prompt
+occ remote my-service/workload.yaml --env development --print-env --show-secrets
+
+# Run two components locally, wiring one's dependency to the other's local port
+occ remote comp1/workload.yaml comp2/workload.yaml \
+  --local comp2=127.0.0.1:9091 --env development
+```
+
+:::note
+`occ remote` requires the remote-connect feature to be enabled on the control plane and a remote-agent router on each data plane. See [Enabling Local Development](../platform-engineer-guide/local-development-setup.mdx).
+
+Your role must grant `component:connect` for each endpoint dependency and `resource:connect` for each resource dependency, plus `resource:read-secrets` to resolve Secret-backed values.
+:::
+
+---
+
 ## Resource Management
 
 ### apply

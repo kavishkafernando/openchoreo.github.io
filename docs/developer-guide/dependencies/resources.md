@@ -231,5 +231,6 @@ Each entry in `status.outputs[]` carries the output name and one of `value`, `se
 
 - [Workload](../workload/overview.md) - How to define Workloads
 - [Endpoint Dependencies](./endpoints.md) - Consuming endpoints exposed by other components
+- [Local Development](../local-development.md) - Tunnel these dependencies to your machine with `occ remote`
 - [Resource concept](../../concepts/developer-abstractions.md#resource) - Overview of the Resource abstraction
 - [Workload API Reference](../../reference/api/application/workload.md) - Full Workload CRD specification

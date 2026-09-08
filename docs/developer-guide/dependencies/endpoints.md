@@ -221,5 +221,7 @@ BAR_SERVICE_URL=http://bar-service.<namespace>.svc.cluster.local:9090
 ## Related Resources
 
 - [Workload](../workload/overview.md) - How to define Workloads
+- [Resource Dependencies](./resources.md) - Consuming project-bound Resources
+- [Local Development](../local-development.md) - Tunnel these dependencies to your machine with `occ remote`
 - [Workload API Reference](../../reference/api/application/workload.md) - Full CRD specification
 - [Component](../../reference/api/application/component.md) - Components that own workloads

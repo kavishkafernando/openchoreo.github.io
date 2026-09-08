@@ -169,6 +169,84 @@ Outputs are the contract between the ResourceType and the workloads that consume
 
 Consumers reference outputs by name through `Workload.spec.dependencies.resources[].envBindings` and `fileBindings` (see the [Resource Dependencies developer guide](../developer-guide/dependencies/resources.md)). Outputs declared on the ResourceType but not requested by a consumer are simply unused; outputs requested by a consumer but missing on the ResourceType surface as a `ResourceDependenciesPending` reason on the consuming `ReleaseBinding`.
 
+## Local Development Addresses
+
+A ResourceType can mark which of its outputs form a **dialable network address**. That is what makes a resource reachable through [`occ remote`](../developer-guide/local-development.md): the control plane opens one tunnel per declared address and re-points the consumer's bindings for that address's host and port at it. A type that marks none still delivers its configuration. It has nothing to dial.
+
+This is declared with an **annotation**, not a spec field, and it is stamped onto every `ResourceRelease` cut from the type:
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: postgres
+  annotations:
+    openchoreo.dev/local-dev-addresses: client=outputs.host:outputs.port
+spec:
+  outputs:
+    - name: host
+      value: ${"postgres-" + params.name + "." + context.namespace + ".svc.cluster.local"}
+    - name: port
+      value: "5432"
+    - name: password
+      secretKeyRef:
+        name: ${params.name + "-credentials"}
+        key: password
+```
+
+### Syntax
+
+Comma-separated entries, each naming an address and the two outputs carrying its halves:
+
+```text
+<name>=outputs.<host output>:outputs.<port output>
+```
+
+```yaml
+openchoreo.dev/local-dev-addresses: >-
+  database=outputs.host:outputs.port,adminEndpoint=outputs.host:outputs.adminPort
+```
+
+| Part                    | Rules                                                                                                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<name>`                | Up to 63 characters of alphanumerics, `-`, `_` and `.`, starting and ending alphanumeric. `/` is excluded because it separates tunnel target-key segments |
+| `outputs.<host output>` | Must name an output declared in `spec.outputs`                                                                                                            |
+| `outputs.<port output>` | Same, and no two addresses may name the same port output                                                                                                  |
+
+**Both halves are required.** There is no way to declare a literal host or port here. An address is always expressed as a pair of outputs, because naming outputs is precisely what lets a consumer redirect _their_ env bindings along with the address. That is how a developer's `DB_HOST`/`DB_PORT` come to point at a tunnel.
+
+Sharing a **host** output between addresses is fine, and expected for a client port and a monitoring port on the same service. Sharing a **port** output is rejected: one environment variable cannot carry a redirected address for two of them.
+
+### What is checked, and when
+
+At **admission**, on the ResourceType and on any ResourceRelease cut from it:
+
+- the annotation parses, and declares at most 10 addresses
+- no name is repeated, and no port output is claimed twice
+- every `outputs.<name>` reference names an output declared in `spec.outputs`
+
+A malformed annotation is rejected **as a whole** rather than having the bad entry dropped, so a typo shows up at admission instead of costing you a tunnel.
+
+Everything else is checked when a developer runs `occ remote`. The control plane reads the annotation from the `ResourceRelease` that the consumer's `ResourceReleaseBinding` is pinned to, and evaluates it against that binding's `status.outputs`. An address that cannot yield something dialable is reported against the address it belongs to, and the resource's other addresses and bindings still resolve:
+
+| Situation                                              | Reported to the developer as                                                                               |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Either named output is backed by a Secret or ConfigMap | `address is published only through a Secret or ConfigMap reference, which the control plane does not read` |
+| A named output has not rendered a value yet            | `output "host" has no value yet; retry once the resource reports it`                                       |
+| The port output does not render a number in 1-65535    | `output "port": port "abc" is not numeric`                                                                 |
+
+:::note
+An address whose host or port comes from a `secretKeyRef` or `configMapKeyRef` output has nothing the control plane can dial, so `occ remote` reports it as unavailable rather than tunnelling it. Publish the host and port as plain `value` outputs to make an address tunnellable. A credential belongs in a separate output.
+:::
+
+Addresses add no field or condition to the binding. `ResourceReleaseBinding.status` carries only `conditions` and `outputs`, and its conditions (`Synced`, `ResourcesReady`, `OutputsResolved`, `Ready`) are unaffected by this annotation, and a resource whose addresses cannot be dialed is still `Ready`. Because resolution happens per `occ remote` invocation, an output that renders later needs nothing more than a re-run.
+
+:::info
+The annotation is named `local-dev-addresses` and this guide calls these **addresses**, but the word _endpoint_ still surfaces in two places: admission error messages (`endpoint "client": host output "hostname" is not declared in spec.outputs`) and `occ remote`'s per-tunnel label (`res/my-postgres/client -> (resource/client)`). They refer to the same thing.
+:::
+
+`occ remote` also re-points a **composed** output, such as a connection URL or driver connection string, whose text embeds a declared address's `host:port`. Annotating a type benefits those outputs too, with no extra declaration.
+
 ## How Developers Consume a ResourceType
 
 Developers create a **Resource** that references the ResourceType, providing parameter values that conform to the declared schema. They then declare a dependency from a Workload to the Resource and bind the outputs they need:

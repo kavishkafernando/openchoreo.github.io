@@ -96,6 +96,7 @@ const sidebars: SidebarsConfig = {
             "platform-engineer-guide/backstage-ownership",
             "platform-engineer-guide/backstage-scaffolder-templates",
             "platform-engineer-guide/secret-management",
+            "platform-engineer-guide/local-development-setup",
           ],
         },
         {
@@ -324,6 +325,11 @@ const sidebars: SidebarsConfig = {
               label: "Resource Dependencies",
             },
           ],
+        },
+        {
+          type: "doc",
+          id: "developer-guide/local-development",
+          label: "Local Development",
         },
         {
           type: "category",
