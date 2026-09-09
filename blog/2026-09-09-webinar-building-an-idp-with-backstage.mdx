@@ -2,7 +2,7 @@
 slug: what-it-really-takes-to-build-an-internal-developer-platform-with-backstage
 title: '[Webinar] What it really takes to build an Internal Developer Platform with Backstage'
 authors: [lakmal, sameera]
-description: "A webinar with Kelsey Hightower an OpenChoreo maintainers on why Backstage alone isn't enough, and how a control plane (like OpenChoreo) solves the messy middle problem by separating the developer experience layer from platform orchestration."
+description: "A webinar with Kelsey Hightower and OpenChoreo maintainers on why Backstage alone isn't enough, and how a control plane (like OpenChoreo) solves the messy middle problem by separating the developer experience layer from platform orchestration."
 category: community
 image: ./assets/previews/webinar-idp-backstage.png
 ---
@@ -15,17 +15,17 @@ image: ./assets/previews/webinar-idp-backstage.png
 
 ## Key Takeaways
 
--   **IDPs exist to boost return on engineering investment:** catalogs, golden paths, and self-service all serve that one goal, with developers as the primary consumer.
+- **IDPs exist to boost return on engineering investment:** catalogs, golden paths, and self-service all serve that one goal, with developers as the primary consumer.
 
--   **Backstage is a portal framework, not a full fix.** It standardizes the developer portal (catalog, scaffolder templates, annotation-based integrations) but leaves teams to wire in their own tools and glue code.
+- **Backstage is a portal framework, not a full fix.** It standardizes the developer portal (catalog, scaffolder templates, annotation-based integrations) but leaves teams to wire in their own tools and glue code.
 
--   **The "messy middle" problem:** as more tools get bolted onto Backstage over time, glue code and org-specific concepts pile up inside it, with no single system owning them making things hard to maintain.
+- **The "messy middle" problem:** as more tools get bolted onto Backstage over time, glue code and org-specific concepts pile up inside it, with no single system owning them making things hard to maintain.
 
--   **The fix: a "platform contract" and control plane.** Move Backstage, CLIs, and AI agents to the developer-experience layer, and push orchestration and abstractions into a control plane underneath so Backstage becomes a *consumer* of the platform, not the platform itself.
+- **The fix: a "platform contract" and control plane.** Move Backstage, CLIs, and AI agents to the developer-experience layer, and push orchestration and abstractions into a control plane underneath so Backstage becomes a _consumer_ of the platform, not the platform itself.
 
--   **A control plane works like a cloud provider's:** it sits above multiple data/workload/observability planes, can span clusters and providers, and stays stable even as the tools on top change, avoiding a full platform rebuild every time.
+- **A control plane works like a cloud provider's:** it sits above multiple data/workload/observability planes, can span clusters and providers, and stays stable even as the tools on top change, avoiding a full platform rebuild every time.
 
--   **OpenChoreo** is a CNCF Sandbox project built on Kubernetes CRDs/controllers, giving platform engineers ready-made, extensible abstractions and swappable modules, without locking teams into Backstage.
+- **OpenChoreo** is a CNCF Sandbox project built on Kubernetes CRDs/controllers, giving platform engineers ready-made, extensible abstractions and swappable modules, without locking teams into Backstage.
 
 You can view the webinar [here](https://www.youtube.com/live/Yq9hFWYQxSU?t=157s).
 
@@ -50,6 +50,7 @@ When we look at these four things, those are the questions you would ask when yo
 And I think it's safe to say Sameera that Backstage has kind of become like the golden standard over the last 10 years or so, where people have stopped building custom Ruby on Rail apps and now they're starting to use something similar. I think that's why Backstage and IDPs have become a big part of the lexicon of people managing infrastructure these days.
 
 ### Backstage as a Developer Portal [8:11](https://www.youtube.com/live/Yq9hFWYQxSU?t=491s)
+
 **Sameera Jayasoma:** Exactly. So, this is a sample Backstage screenshot. I'm sure you're familiar with Backstage, if you've used it, you've seen this. Pretty standard. So here you're seeing the catalog in Backstage. You're seeing all your services, who owns them, and what stage they're in. You can go into one of those to get more details. So this is sort of the day-one, or first, phase of a portal that you offer to your developers. As developers ourselves, we need more. So they come back with more requests. I went to Backstage Con Amsterdam this year, and there was a nice talk by booking.com where they explained their story. They gave the first version of the portal, and they named it something like "Backstage booking.com". Then there were more requests from their developers, so they did version two and named it "the engineering platform," to include everything that's part of engineering in their organization. That's a nice story if you want to look it up.
 
 So what do you do? All these requests are asking you to do things on their own. In Backstage, you have the "scaffolder" concept: you can create templates and encapsulate your workflow orchestrations in them. Here's another screenshot of a simple version of this: it creates a repository and provisions a service entity in Backstage. Likewise, you can encode your organization's golden paths in Backstage.
