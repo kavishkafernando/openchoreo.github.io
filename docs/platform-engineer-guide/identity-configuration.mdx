@@ -24,7 +24,7 @@ The identity provider configuration is managed through helm chart values during 
 
 ## Default Identity Provider
 
-OpenChoreo ships with **ThunderID** as the default identity provider. ThunderID is a lightweight, OAuth2/OIDC compliant identity management platform that enables quick setup for development and testing environments.
+OpenChoreo ships with **[ThunderID](https://thunderid.dev)** as the default identity provider. ThunderID is a lightweight, OAuth2/OIDC compliant identity management platform that enables quick setup for development and testing environments.
 
 ### Features
 
@@ -181,7 +181,7 @@ The following components require OAuth client configuration:
 
 **Observer (uid-resolver):**
 
-- For configuration steps, refer to the [Observer External IDP Configuration](./observability-alerting.mdx#observer-external-idp-configuration) guide
+- For configuration steps, refer to the [Observer External IdP Configuration](./observability/observer-external-idp.mdx) guide
 
 :::tip
 Store sensitive values like client secrets using Kubernetes secrets rather than directly in helm values. Refer to the [Secret Management](./secret-management.mdx) guide for best practices.

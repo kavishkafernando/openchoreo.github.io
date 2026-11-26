@@ -1,6 +1,6 @@
 ---
-title: Controlplane Namespace Management
-description: Platform engineer guide to create and setup OpenChoreo Controlplane Namespaces
+title: Control Plane Namespace Management
+description: Platform engineer guide to create and set up OpenChoreo Control Plane Namespaces
 ---
 
 import CodeBlock from "@theme/CodeBlock";
@@ -8,11 +8,11 @@ import { versions } from "../_constants.mdx";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-# Controlplane Namespace Management
+# Control Plane Namespace Management
 
-You can create multiple namespaces in OpenChoreo controlplane to group resources and keep them isolated in the controlplane cluster.
+You can create multiple namespaces in OpenChoreo Control Plane to group resources and keep them isolated in the Control Plane cluster.
 
-After creating a new namespace in OpenChoreo controlplane, cluster-scoped default resources (ClusterComponentType, ClusterTrait, ClusterWorkflow, ClusterDataPlane, ClusterWorkflowPlane) are automatically visible without any additional setup. You only need to create namespace-scoped Environments, a DeploymentPipeline, and a Project.
+After creating a new namespace in OpenChoreo Control Plane, cluster-scoped default resources (ClusterComponentType, ClusterTrait, ClusterWorkflow, ClusterDataPlane, ClusterWorkflowPlane) are automatically visible without any additional setup. You only need to create namespace-scoped Environments, a DeploymentPipeline, and a Project.
 
 If you need physical isolation, you can create namespace-scoped variants (ComponentType, Trait, DataPlane, etc.) that override the cluster-scoped defaults within that namespace.
 
@@ -28,6 +28,7 @@ Before starting, ensure you have:
 
 1. **kubectl** configured with access to your cluster(s)
 2. **Cluster admin or namespace admin permissions**
+3. The **[`occ` CLI](../getting-started/cli-installation.mdx)** installed and logged in to your control plane (`occ login`) — the verification commands throughout this guide use it
 
 ### Set Environment Variables
 
@@ -108,7 +109,7 @@ kubectl apply -f <(curl -s https://raw.githubusercontent.com/openchoreo/openchor
 **Verification:**
 
 <CodeBlock language="bash">
-  {`kubectl get environment -n $NAMESPACE_NAME`}
+  {`occ environment list -n $NAMESPACE_NAME`}
 </CodeBlock>
 
 #### 2. Deployment Pipeline (At least 1)
@@ -156,8 +157,8 @@ EOF`}
 **Verification:**
 
 <CodeBlock language="bash">
-  {`kubectl get deploymentpipeline -n $NAMESPACE_NAME
-kubectl get deploymentpipeline default -n $NAMESPACE_NAME -o yaml`}
+  {`occ deploymentpipeline list -n $NAMESPACE_NAME
+occ deploymentpipeline get default -n $NAMESPACE_NAME`}
 </CodeBlock>
 
 #### 3. Project (At least 1)
@@ -187,8 +188,8 @@ EOF`}
 **Verification:**
 
 <CodeBlock language="bash">
-  {`kubectl get project -n $NAMESPACE_NAME
-kubectl get project default -n $NAMESPACE_NAME -o yaml`}
+  {`occ project list -n $NAMESPACE_NAME
+occ project get default -n $NAMESPACE_NAME`}
 </CodeBlock>
 
 ### Optional Resources
@@ -243,9 +244,7 @@ EOF`}
 
 **Verification:**
 
-<CodeBlock language="bash">
-  {`kubectl get dataplane -n $NAMESPACE_NAME`}
-</CodeBlock>
+<CodeBlock language="bash">{`occ dataplane list -n $NAMESPACE_NAME`}</CodeBlock>
 
 #### Workflow Plane (Optional)
 
@@ -290,7 +289,7 @@ EOF`}
 **Verification:**
 
 <CodeBlock language="bash">
-  {`kubectl get workflowplane -n $NAMESPACE_NAME`}
+  {`occ workflowplane list -n $NAMESPACE_NAME`}
 </CodeBlock>
 
 #### Observability Plane (Optional)
@@ -304,7 +303,7 @@ The Observability Plane provides centralized logging and monitoring for deployed
 
 **Setup:**
 
-See the [Observability and Alerting](./observability-alerting.mdx) guide for detailed setup instructions.
+See the [Observability](./observability/overview.mdx) guide for detailed setup instructions.
 
 **Namespace-scoped setup (for isolation):**
 
@@ -324,6 +323,8 @@ name: default
 namespace: $NAMESPACE_NAME
 spec:
     planeID: "default"
+    secretStoreRef:
+      name: default
     clusterAgent:
       clientCA:
         value: |
@@ -340,7 +341,7 @@ EOF`}
 **Verification:**
 
 <CodeBlock language="bash">
-  {`kubectl get observabilityplane -n $NAMESPACE_NAME`}
+  {`occ observabilityplane list -n $NAMESPACE_NAME`}
 </CodeBlock>
 
 #### Component Types, Workflows, and Traits (Namespace-scoped, for isolation)
@@ -364,7 +365,7 @@ Once your namespace is prepared, you can:
 
 2. **Configure additional platform features**
    - [Secret Management](./secret-management.mdx) - External secret store integration
-   - [Observability and Alerting](./observability-alerting.mdx) - Monitoring and alerts
+   - [Observability](./observability/overview.mdx) - Monitoring and alerts
 
 ## Troubleshooting
 
@@ -374,13 +375,13 @@ Check the ClusterDataPlane or DataPlane status and conditions:
 
 <CodeBlock language="bash">
 {`# For cluster-scoped (default):
-kubectl get clusterdataplane $DATAPLANE_NAME
-kubectl get clusterdataplane $DATAPLANE_NAME -o yaml | grep -A 20 "^status:"
+occ clusterdataplane list
+occ clusterdataplane get $DATAPLANE_NAME | grep -A 20 "^status:"
 
 # For namespace-scoped:
 
-kubectl get dataplane $DATAPLANE_NAME -n $NAMESPACE_NAME
-kubectl get dataplane $DATAPLANE_NAME -n $NAMESPACE_NAME -o yaml | grep -A 20 "^status:"`}
+occ dataplane list -n $NAMESPACE_NAME
+occ dataplane get $DATAPLANE_NAME -n $NAMESPACE_NAME | grep -A 20 "^status:"`}
 
 </CodeBlock>
 
@@ -412,11 +413,13 @@ Check that cluster-scoped resources exist, or that namespace-scoped resources we
 
 <CodeBlock language="bash">
 {`# Check cluster-scoped resources (visible to all namespaces):
-kubectl get clustercomponenttype,clusterworkflow
+occ clustercomponenttype list
+occ clusterworkflow list
 
 # Check namespace-scoped resources:
 
-kubectl get componenttype,workflow -n $NAMESPACE_NAME`}
+occ componenttype list -n $NAMESPACE_NAME
+occ workflow list -n $NAMESPACE_NAME`}
 
 </CodeBlock>
 
@@ -440,15 +443,15 @@ Verify the DataPlane name in the Environment spec matches an existing ClusterDat
 
 <CodeBlock language="bash">
 {`# Check cluster-scoped (default):
-kubectl get clusterdataplane
+occ clusterdataplane list
 
 # Check namespace-scoped:
 
-kubectl get dataplane -n $NAMESPACE_NAME
+occ dataplane list -n $NAMESPACE_NAME
 
-# Check the environment's reference:
+# Check the environment's reference (see spec.dataPlaneRef in the output):
 
-kubectl get environment <env-name> -n $NAMESPACE_NAME -o jsonpath='{.spec.dataPlaneRef}'`}
+occ environment get <env-name> -n $NAMESPACE_NAME`}
 
 </CodeBlock>
 
@@ -457,8 +460,8 @@ kubectl get environment <env-name> -n $NAMESPACE_NAME -o jsonpath='{.spec.dataPl
 Verify the DeploymentPipeline exists and the reference is correct:
 
 <CodeBlock language="bash">
-  {`kubectl get deploymentpipeline -n $NAMESPACE_NAME
-kubectl get project <project-name> -n $NAMESPACE_NAME -o jsonpath='{.spec.deploymentPipelineRef.name}'`}
+  {`occ deploymentpipeline list -n $NAMESPACE_NAME
+occ project get <project-name> -n $NAMESPACE_NAME`}
 </CodeBlock>
 
 ## Related Documentation
@@ -468,4 +471,4 @@ kubectl get project <project-name> -n $NAMESPACE_NAME -o jsonpath='{.spec.deploy
 - [Multi-Cluster Connectivity](./multi-cluster-connectivity.mdx) - Setting up multi-cluster deployments
 - [Container Registry Configuration](./container-registry-configuration.mdx) - External registry setup
 - [Auto-Build Configuration](./workflows/auto-build.mdx) - Build system configuration
-- [Observability and Alerting](./observability-alerting.mdx) - Logging and monitoring setup
+- [Observability](./observability/overview.mdx) - Logging and monitoring setup

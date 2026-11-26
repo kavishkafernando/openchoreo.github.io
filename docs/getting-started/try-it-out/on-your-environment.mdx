@@ -8,50 +8,31 @@ import CodeBlock from "@theme/CodeBlock";
 import Link from "@docusaurus/Link";
 import { versions, defaultCredentials } from "../../_constants.mdx";
 import AgentSetupBuilder from "@site/src/components/AgentSetupBuilder";
-import AgentCallout from "@site/src/components/AgentCallout";
+import { SetupSwitch, SetupOption } from "@site/src/components/SetupSwitch";
 
 # Run OpenChoreo in Your Environment
 
-This guide walks you through setting up OpenChoreo on any Kubernetes cluster (k3s, GKE, EKS, DOKS, AKS, or self-managed). You will install each plane one at a time, and after each one you will do something real with it: log in, deploy a service, or trigger a build.
+This guide runs OpenChoreo on any Kubernetes cluster (k3s, GKE, EKS, DOKS, AKS, or self-managed), using a **single-cluster topology** with all planes in one cluster. For split-cluster setups, follow [Multi-Cluster Connectivity](../../platform-engineer-guide/multi-cluster-connectivity.mdx). For clusters without internet access, follow [Air-Gapped Installation](../../platform-engineer-guide/air-gapped-installation.mdx).
 
-It uses a **single-cluster topology** (all planes in one cluster). For split-cluster setups, follow [Multi-Cluster Connectivity](../../platform-engineer-guide/multi-cluster-connectivity.mdx).
-
-All gateways are configured with HTTPS using self-signed certificates by default. You can replace them with certificates from a real CA later.
+Gateways use HTTPS with self-signed certificates by default; you can swap in certificates from a real CA later.
 
 OpenChoreo has four planes:
 
 - **Control Plane** runs the API, console, identity provider, and controllers.
 - **Data Plane** runs your workloads and routes traffic to them.
 - **Workflow Plane** builds container images from source using Argo Workflows.
-- **Observability Plane** collects logs and metrics from all other planes.
+- **Observability Plane** collects logs and metrics from the other planes.
 
-**What you will get:**
-
-- OpenChoreo running on your Kubernetes cluster with HTTPS
-- A reachable console URL over your cluster LoadBalancer
-- A deployed web app you can open in your browser
-- Optional source-to-image build pipeline and log collection
-
-<AgentCallout>
-
-Install the skill, pick your environment and planes, and paste the prompt into your agent (Claude Code, Codex, Cursor, or any coding agent).
-
-```bash
-npx skills add openchoreo/skills --skill openchoreo-setup
-```
-
-<AgentSetupBuilder currentVersion={versions.helmChart} />
-
-</AgentCallout>
+By the end you'll have OpenChoreo running on your cluster over HTTPS, reachable at a console URL through your LoadBalancer, with a web app deployed and, optionally, a source-to-image build pipeline and log collection.
 
 ## Prerequisites
 
 | Tool                                               | Version | Purpose         |
 | -------------------------------------------------- | ------- | --------------- |
-| [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.32+  | Kubernetes CLI  |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.34+  | Kubernetes CLI  |
 | [Helm](https://helm.sh/docs/intro/install/)        | v3.12+  | Package manager |
 
-Recommended cluster baseline: Kubernetes 1.32+, LoadBalancer support, and a default StorageClass.
+Minimum supported Kubernetes version: 1.34+. The cluster also needs LoadBalancer support and a default StorageClass.
 
 Verify everything is installed:
 
@@ -61,6 +42,23 @@ helm version --short
 kubectl get nodes
 kubectl auth can-i '*' '*' --all-namespaces
 ```
+
+Verify the node kernel and CRI runtime reported by Kubernetes:
+
+```bash
+kubectl get nodes \
+  -o custom-columns=NAME:.metadata.name,KERNEL:.status.nodeInfo.kernelVersion,RUNTIME:.status.nodeInfo.containerRuntimeVersion,KUBELET:.status.nodeInfo.kubeletVersion
+```
+
+## Install
+
+Pick how you want to install it:
+
+<SetupSwitch>
+
+<SetupOption title="Guided install" desc="Install each plane yourself, step by step, and learn what every piece does and how it fits together.">
+
+Install OpenChoreo by hand, one plane at a time. Work through each step in order.
 
 ## Step 1: Install Prerequisites
 
@@ -72,7 +70,7 @@ The [Gateway API](https://gateway-api.sigs.k8s.io/) is the Kubernetes-native way
 
 ```bash
 kubectl apply --server-side \
-  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
 ```
 
 #### cert-manager
@@ -108,14 +106,13 @@ helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/ex
 ```bash
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --create-namespace --namespace openchoreo-control-plane \
-  --version v2.2.1
+  --version v2.3.11
 ```
 
 ```bash
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace openchoreo-control-plane --create-namespace \
-  --version v2.2.1 \
-  --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
+  --version v2.3.11
 ```
 
 #### OpenBao (Secret Backend)
@@ -261,7 +258,13 @@ gateway:
 EOF`}
 </CodeBlock>
 
-Some pods will crash-loop at this point because ThunderID and Backstage secrets are not configured yet. That is expected. The only thing needed from this step is the Gateway's LoadBalancer address.
+To install without the bundled portal, replace the whole `backstage:` block above with
+`backstage: {enabled: false}` — a portal-less install needs no `baseUrl`, `secretName` or
+hostname. The chart then drops the portal's endpoint from the event forwarder; adding
+`eventForwarder: {enabled: false}` as well is optional and only skips the idle forwarder
+pod. You can then skip the Backstage secret and OAuth redirect steps further down.
+
+Some pods will crash-loop at this point because ThunderID and Backstage secrets are not configured yet. That is expected (with `backstage.enabled: false` only the ThunderID-dependent pods do). The only thing needed from this step is the Gateway's LoadBalancer address.
 
 <details>
 <summary>EKS only: make the LoadBalancer internet-facing</summary>
@@ -326,7 +329,7 @@ kubectl wait --for=condition=Ready certificate/cp-gateway-tls \
 
 ### Install ThunderID (Identity Provider)
 
-[ThunderID](https://github.com/thunder-id/thunderid) handles authentication and OAuth flows. The setup job is a **pre-install helm hook** that bootstraps users, groups, and OAuth applications on the very first `helm install`. To change these later, uninstall ThunderID, delete the PVC, and reinstall.
+[ThunderID](https://github.com/thunder-id/thunderid) handles authentication and OAuth flows. The values file declares users, groups, and OAuth applications as resource documents, which the setup job — a **pre-install helm hook** — applies on the very first `helm install`. To change these later, uninstall ThunderID, delete the PVC, and reinstall.
 
 <CodeBlock language="bash">
   {`curl -fsSL https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/install/k3d/common/values-thunder.yaml \\
@@ -335,10 +338,10 @@ kubectl wait --for=condition=Ready certificate/cp-gateway-tls \
   | sed "s#http://openchoreo.localhost:8080#https://console.\${CP_BASE_DOMAIN}#g" \\
   | sed "s#port: 8080#port: 443#g" \\
   | sed 's#scheme: "http"#scheme: "https"#g' \\
-  | helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \\
+  | helm upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \\
       --namespace thunder \\
       --create-namespace \\
-      --version 0.28.0 \\
+      --version 1.0.1 \\
       --values -`}
 </CodeBlock>
 
@@ -346,7 +349,7 @@ Wait for ThunderID to be ready:
 
 ```bash
 kubectl wait -n thunder \
-  --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunder
+  --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunderid
 ```
 
 You can browse and modify the ThunderID configuration at:
@@ -355,11 +358,38 @@ You can browse and modify the ThunderID configuration at:
 echo "https://thunder.${CP_BASE_DOMAIN}/console"
 ```
 
-| Username | Password |
-| -------- | -------- |
-| `admin`  | `admin`  |
+Log in as `admin`. ThunderID generates the password on install; retrieve it with:
+
+```bash
+kubectl get secret -n thunder thunder-admin-credentials \
+  -o jsonpath='{.data.admin-password}' | base64 -d; echo
+```
+
+#### Default Credentials
+
+The ThunderID bootstrap creates one OpenChoreo platform user for each default role. The
+user's group grants the role through the default authorization bindings.
+
+These users are created whether or not the Backstage portal is installed, and the same
+credentials authenticate the portal, `occ login` and the MCP clients.
+
+| Username                           | Password    | Group                | Role                |
+| ---------------------------------- | ----------- | -------------------- | ------------------- |
+| `admin@openchoreo.dev`             | `Admin@123` | `admins`             | `admin`             |
+| `developer@openchoreo.dev`         | `Dev@123`   | `developers`         | `developer`         |
+| `platform-engineer@openchoreo.dev` | `PE@123`    | `platform-engineers` | `platform-engineer` |
+| `sre@openchoreo.dev`               | `SRE@123`   | `sres`               | `sre`               |
+
+The ThunderID console itself uses the `admin` user and the generated password shown above.
+
+:::warning
+These passwords are published defaults. Change them, or replace the bootstrapped users,
+before exposing the installation to anyone else.
+:::
 
 #### Backstage Secrets
+
+Skip this section if you are installing without the portal.
 
 The web console (Backstage) needs a backend secret for session signing and an OAuth client secret to authenticate with ThunderID:
 
@@ -442,12 +472,16 @@ gateway:
 EOF`}
 </CodeBlock>
 
+:::note[Internal API authentication]
+Mutual TLS on the Cluster Gateway's **internal API** (port `:8444`, which proxies, execs, and streams logs into every connected plane) is **enabled by default** on this version, so no extra configuration is needed here — callers must present a certificate signed by a dedicated internal CA that cert-manager provisions automatically. To turn it off for local experimentation, set `clusterGateway.internalMtls.enabled=false`. See [Multi-Cluster Connectivity](../../platform-engineer-guide/multi-cluster-connectivity.mdx) for the full trust model.
+:::
+
 Update ThunderID's `HTTPRoute` to use the real domain:
 
 <CodeBlock language="bash">
-  {`helm upgrade thunder oci://ghcr.io/asgardeo/helm-charts/thunder \\
+  {`helm upgrade thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \\
   --namespace thunder \\
-  --version 0.28.0 \\
+  --version 1.0.1 \\
   --reuse-values \\
   --set "httproute.hostnames[0]=thunder.\${CP_BASE_DOMAIN}"`}
 </CodeBlock>
@@ -473,6 +507,12 @@ Verify HTTPS is working:
 ```bash
 curl -sk https://thunder.${CP_BASE_DOMAIN}/health/readiness
 curl -sk https://api.${CP_BASE_DOMAIN}/health
+```
+
+The two checks above are the verification path for every install. If you installed the
+portal, also check that it answers:
+
+```bash
 curl -sk -o /dev/null -w "%{http_code}" https://console.${CP_BASE_DOMAIN}/
 ```
 
@@ -606,7 +646,7 @@ When `clusterAgent.tls.generateCerts=true` is set (as in this guide), the agent 
 
 ```bash
 kubectl wait -n openchoreo-data-plane \
-  --for=jsonpath='{.data.ca\.crt}' secret/cluster-agent-tls --timeout=120s
+  --for=condition=Ready certificate/cluster-agent-dataplane-tls --timeout=120s
 
 AGENT_CA=$(kubectl get secret cluster-agent-tls \
   -n openchoreo-data-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
@@ -647,7 +687,7 @@ EOF
 
 ### Try it: Log In and Deploy
 
-Open the OpenChoreo console in your browser:
+If you installed the portal, open the OpenChoreo console in your browser:
 
 ```bash
 echo "https://console.${CP_BASE_DOMAIN}"
@@ -657,7 +697,15 @@ echo "https://console.${CP_BASE_DOMAIN}"
 | ------------------------------------------ | ------------------------------------------ |
 | <code>{defaultCredentials.username}</code> | <code>{defaultCredentials.password}</code> |
 
-You should see the OpenChoreo console. Deploy a sample web app:
+To log in with a different role, use one of the other [default credentials](#default-credentials).
+
+You should see the OpenChoreo console.
+
+Installed without the portal? Point the [`occ` CLI](../cli-installation.mdx) at
+`https://api.${CP_BASE_DOMAIN}` and sign in with the same credentials, or apply the sample
+below with `kubectl` — neither needs the console.
+
+Deploy a sample web app:
 
 <CodeBlock language="bash">
   {`kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/from-image/react-starter-web-app/react-starter.yaml`}
@@ -748,7 +796,7 @@ The workflow plane references the same `default` ClusterSecretStore created in S
 
 ```bash
 kubectl wait -n openchoreo-workflow-plane \
-  --for=jsonpath='{.data.ca\.crt}' secret/cluster-agent-tls --timeout=120s
+  --for=condition=Ready certificate/cluster-agent-workflowplane-tls --timeout=120s
 
 AGENT_CA=$(kubectl get secret cluster-agent-tls \
   -n openchoreo-workflow-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
@@ -957,37 +1005,40 @@ If your LoadBalancer provider assigns only one IP, add `--set gateway.httpPort=9
 
 #### Install the logs module (OpenSearch)
 
-```bash
-helm upgrade --install observability-logs-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-  --create-namespace \
-  --namespace openchoreo-observability-plane \
-  --version 0.5.1 \
-  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
-  --set adapter.openSearchSecretName="opensearch-admin-credentials"
-```
+`fluentBitCustomizations.clusterInstance` names this cluster on every collected log record. Use a value that is unique among the clusters reporting to this observability plane.
+
+export const logsModuleInstall = `helm upgrade --install observability-logs-opensearch \\
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-logs-opensearch \\
+  --create-namespace \\
+  --namespace openchoreo-observability-plane \\
+  --version ${versions.logsOpensearchModule} \\
+  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \\
+  --set adapter.openSearchSecretName="opensearch-admin-credentials" \\
+  --set fluentBitCustomizations.clusterInstance=openchoreo`;
+
+<CodeBlock language="bash">{logsModuleInstall}</CodeBlock>
 
 #### Install the metrics module (Prometheus)
 
-```bash
-helm upgrade --install observability-metrics-prometheus \
-  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
-  --create-namespace \
-  --namespace openchoreo-observability-plane \
-  --version 0.6.1
-```
+export const metricsModuleInstall = `helm upgrade --install observability-metrics-prometheus \\
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-metrics-prometheus \\
+  --create-namespace \\
+  --namespace openchoreo-observability-plane \\
+  --version ${versions.metricsPrometheusModule}`;
+
+<CodeBlock language="bash">{metricsModuleInstall}</CodeBlock>
 
 #### Install the traces module (OpenSearch)
 
-```bash
-helm upgrade --install observability-traces-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
-  --create-namespace \
-  --namespace openchoreo-observability-plane \
-  --version 0.4.1 \
-  --set openSearch.enabled=false \
-  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials"
-```
+export const tracesModuleInstall = `helm upgrade --install observability-traces-opensearch \\
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-tracing-opensearch \\
+  --create-namespace \\
+  --namespace openchoreo-observability-plane \\
+  --version ${versions.tracingOpensearchModule} \\
+  --set openSearch.enabled=false \\
+  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials"`;
+
+<CodeBlock language="bash">{tracesModuleInstall}</CodeBlock>
 
 #### Create the Observability Plane TLS Certificate
 
@@ -1068,7 +1119,7 @@ EOF`}
 
 ```bash
 kubectl wait -n openchoreo-observability-plane \
-  --for=jsonpath='{.data.ca\.crt}' secret/cluster-agent-tls --timeout=120s
+  --for=condition=Ready certificate/cluster-agent-observabilityplane-tls --timeout=120s
 
 AGENT_CA=$(kubectl get secret cluster-agent-tls \
   -n openchoreo-observability-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
@@ -1089,6 +1140,8 @@ spec:
       value: |
 $(echo "$AGENT_CA" | sed 's/^/        /')
   observerURL: https://${OBS_DOMAIN}${OBS_PORT_SUFFIX}
+  secretStoreRef:
+    name: default
 EOF
 ```
 
@@ -1108,55 +1161,49 @@ kubectl patch clusterworkflowplane default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 ```
 
-#### Enable Fluent Bit for log collection
-
-<CodeBlock language="bash">
-  {`helm upgrade -n openchoreo-observability-plane observability-logs-opensearch \\
-  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \\
-  --version 0.5.1 \\
-  --reuse-values \\
-  --set fluent-bit.enabled=true`}
-</CodeBlock>
+:::tip[Audit logs]
+To record who changed what on the platform, enable audit logging on the logs module, the observability plane and the control plane. See [Audit Logging](../../platform-engineer-guide/observability/audit-logging.mdx#enabling-audit-logging).
+:::
 
 #### Enable kubernetes events collection and exporting to logs module
 
-<CodeBlock language="bash">
-  {`helm upgrade --install observability-events-otel-collector \\
-    oci://ghcr.io/openchoreo/helm-charts/observability-events-otel-collector \\
-    --namespace openchoreo-observability-plane \\
-    --version 0.1.1 \\
-    -f - <<'EOF'
-  collector:
-    extraEnv:
-      - name: OPENSEARCH_USERNAME
-        valueFrom:
-          secretKeyRef:
-            name: opensearch-admin-credentials
-            key: username
-      - name: OPENSEARCH_PASSWORD
-        valueFrom:
-          secretKeyRef:
-            name: opensearch-admin-credentials
-            key: password
-  extraExtensions:
-    basicauth/opensearch:
-      client_auth:
-        username: \${env:OPENSEARCH_USERNAME}
-        password: \${env:OPENSEARCH_PASSWORD}
-  exporters:
-    opensearch:
-      logs_index: "k8s-events"
-      logs_index_time_format: "yyyy-MM-dd"
-      http:
-        endpoint: "https://opensearch:9200"
-        tls:
-          insecure_skip_verify: true
-        auth:
-          authenticator: basicauth/opensearch
-  pipelineExporters:
-    - opensearch
-  EOF`}
-</CodeBlock>
+export const eventsCollectorInstall = `helm upgrade --install observability-events-otel-collector \\
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/observability-events-otel-collector \\
+  --namespace openchoreo-observability-plane \\
+  --version ${versions.eventsOtelCollectorModule} \\
+  -f - <<'EOF'
+collector:
+  extraEnv:
+    - name: OPENSEARCH_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: username
+    - name: OPENSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: password
+extraExtensions:
+  basicauth/opensearch:
+    client_auth:
+      username: \${env:OPENSEARCH_USERNAME}
+      password: \${env:OPENSEARCH_PASSWORD}
+exporters:
+  opensearch:
+    logs_index: "k8s-events"
+    logs_index_time_format: "yyyy-MM-dd"
+    http:
+      endpoint: "https://opensearch:9200"
+      tls:
+        insecure_skip_verify: true
+      auth:
+        authenticator: basicauth/opensearch
+pipelineExporters:
+  - opensearch
+EOF`;
+
+<CodeBlock language="bash">{eventsCollectorInstall}</CodeBlock>
 
 Verify the observer is reachable:
 
@@ -1229,6 +1276,24 @@ kubectl delete namespace \
   external-secrets \
   cert-manager 2>/dev/null
 ```
+
+</SetupOption>
+
+<SetupOption title="Install with your agent (experimental)" desc="Install the skill and paste one prompt into Claude Code, Codex, Cursor, or any coding agent." interactive>
+
+Install the `openchoreo-setup` skill.
+
+```bash
+npx skills add openchoreo/skills --skill openchoreo-setup -g
+```
+
+Then pick your environment and planes, and copy the prompt into your agent.
+
+<AgentSetupBuilder currentVersion={versions.helmChart} />
+
+</SetupOption>
+
+</SetupSwitch>
 
 ## Next Steps
 

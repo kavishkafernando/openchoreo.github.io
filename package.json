@@ -5,6 +5,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "gen:helm-docs": "node scripts/generate-helm-docs.js",
+    "docs:init-upgrade-guide": "node scripts/init-upgrade-guide.js",
     "start": "docusaurus start",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
@@ -18,7 +19,7 @@
     "format:check": "prettier --check \"docs/**/*.{md,mdx}\""
   },
   "dependencies": {
-    "@docsearch/docusaurus-adapter": "^4.6.3",
+    "@docsearch/docusaurus-adapter": "^4.7.1",
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/plugin-client-redirects": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2",
@@ -29,18 +30,20 @@
     "clsx": "^2.0.0",
     "lucide-react": "^0.577.0",
     "prism-react-renderer": "^2.3.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "stream-browserify": "^3.0.0",
-    "swagger-ui-react": "^5.32.6"
+    "swagger-ui-react": "^5.35.0",
+    "web-vitals": "^6.2.3"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "3.10.1",
-    "@docusaurus/tsconfig": "3.10.1",
-    "@docusaurus/types": "3.10.1",
-    "prettier": "^3.8.3",
+    "@docusaurus/module-type-aliases": "3.10.2",
+    "@docusaurus/tsconfig": "3.10.2",
+    "@docusaurus/types": "3.10.2",
+    "prettier": "^3.10.1",
+    "sharp": "^0.35.5",
     "typescript": "~5.9.3"
   },
   "browserslist": {

@@ -29,7 +29,7 @@ spec:
     projectName: doclet
     componentName: doclet-document
   container:
-    image: ghcr.io/openchoreo/samples/doclet-document:latest
+    image: cr.openchoreo.dev/openchoreo/samples/doclet-document:latest
   dependencies:
     resources:
       - ref: doclet-postgres
@@ -138,7 +138,7 @@ spec:
     projectName: doclet
     componentName: doclet-document
   container:
-    image: ghcr.io/openchoreo/samples/doclet-document:latest
+    image: cr.openchoreo.dev/openchoreo/samples/doclet-document:latest
   endpoints:
     http:
       type: HTTP
@@ -203,7 +203,7 @@ spec:
 After the bindings report `Ready` and the consuming Component is deployed, verify the injected variables from inside the pod:
 
 ```bash
-kubectl exec -n <data-plane-namespace> <pod-name> -- env | grep -E 'DB_|NATS'
+occ component exec <component-name> --project doclet --env development -- env | grep -E 'DB_|NATS'
 ```
 
 The output shows the resolved connection details, with the password loaded from a Secret reference:
@@ -222,7 +222,7 @@ DOCLET_NATS_URL=nats://<token>@nats-doclet.openchoreo-dp-doclet-development.svc.
 To inspect the resolved outputs without deploying a consumer, view the `ResourceReleaseBinding.status.outputs` directly:
 
 ```bash
-kubectl get resourcereleasebinding doclet-postgres-development -o yaml
+occ resourcereleasebinding get doclet-postgres-development
 ```
 
 Each entry in `status.outputs[]` carries the output name and one of `value`, `secretKeyRef`, or `configMapKeyRef`. For credential outputs, only the Secret name and key are shown—the actual value never appears here, matching the shape that lands in the consuming pod.
@@ -231,5 +231,6 @@ Each entry in `status.outputs[]` carries the output name and one of `value`, `se
 
 - [Workload](../workload/overview.md) - How to define Workloads
 - [Endpoint Dependencies](./endpoints.md) - Consuming endpoints exposed by other components
+- [Local Development](../local-development.md) - Tunnel these dependencies to your machine with `occ remote`
 - [Resource concept](../../concepts/developer-abstractions.md#resource) - Overview of the Resource abstraction
 - [Workload API Reference](../../reference/api/application/workload.md) - Full Workload CRD specification

@@ -73,7 +73,7 @@ This step is dynamically generated from the selected ComponentType (e.g., "Servi
 Click **Create** to finish.
 
 :::note
-For "Build from Source" deployments, environment variables and file mounts are configured via a [`workload.yaml` descriptor](../workflows/ci/workload-descriptor.md) in your source repository rather than in the wizard.
+For "Build from Source" deployments, environment variables and file mounts are configured via a [`workload.yaml` descriptor](../workload/descriptor.md) in your source repository rather than in the wizard.
 :::
 
 ## Creating via YAML
@@ -140,7 +140,7 @@ spec:
     projectName: default
     componentName: greeter-service
   container:
-    image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+    image: "cr.openchoreo.dev/openchoreo/samples/greeter-service:latest"
     env:
       - key: LOG_LEVEL
         value: "info"
@@ -152,7 +152,7 @@ spec:
 ```
 
 ```bash
-kubectl apply -f component.yaml
+occ apply -f component.yaml
 ```
 
 :::tip
@@ -192,7 +192,7 @@ spec:
 ```
 
 ```bash
-kubectl apply -f component.yaml
+occ apply -f component.yaml
 ```
 
 The workflow builds the container image and creates a Workload automatically. If `autoBuild` is enabled, subsequent Git pushes trigger new builds via webhooks.
@@ -243,4 +243,4 @@ occ component delete greeter-service --namespace default
 
 - [Define Your Workload](../workload/overview.md): learn more about workload specifications
 - [Build Your Code](../workflows/ci/overview.md): configure CI workflows and auto-build
-- [Workload Descriptor](../workflows/ci/workload-descriptor.md): customize what your CI build produces
+- [Workload Descriptor](../workload/descriptor.md): customize what your CI build produces

@@ -3,63 +3,21 @@ import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import styles from './styles.module.css';
 import communityEvents from './events.json';
+import {
+  type CommunityEvent,
+  useNow,
+  splitEvents,
+  getCategoryMeta,
+  monthShort,
+  dayLabel,
+  metaLine,
+  dateSpanLabel,
+  resolveCta,
+} from '@site/src/utils/communityEvents';
 
-type EventCategory = 'Meetups' | 'Community calls' | 'Conferences';
+const events = communityEvents.events as CommunityEvent[];
 
-type EventItem = {
-  month: string;
-  day: string;
-  category: EventCategory;
-  title: string;
-  meta: string;
-  primaryAction: string;
-  primaryActionHref: string;
-};
-
-type PastEventItem = {
-  date: string;
-  title: string;
-  action: string;
-  actionHref: string;
-};
-
-const events = communityEvents.events as EventItem[];
-const pastEvents = communityEvents.pastEvents as PastEventItem[];
-
-const filters = [
-  'All',
-  ...Array.from(new Set(events.map((event) => event.category))),
-];
-
-const categoryMeta: Record<
-  string,
-  {
-    tag: string;
-    variant: string;
-  }
-> = {
-  Meetups: {
-    tag: 'Meetup',
-    variant: 'amber',
-  },
-  'Community calls': {
-    tag: 'Community call',
-    variant: 'blue',
-  },
-  Conferences: {
-    tag: 'Conference',
-    variant: 'green',
-  },
-};
-
-function getCategoryMeta(category: string) {
-  return (
-    categoryMeta[category] ?? {
-      tag: category,
-      variant: 'blue',
-    }
-  );
-}
+const PAST_PREVIEW_COUNT = 3;
 
 const channels = [
   {
@@ -99,16 +57,129 @@ const channels = [
   },
 ];
 
+function IssueIcon() {
+  return (
+    <svg viewBox='0 0 24 24' aria-hidden='true'>
+      <circle
+        cx='12'
+        cy='12'
+        r='8.25'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.8'
+      />
+      <path
+        d='M12 7.5v5.25M12 16.25h.01'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.8'
+        strokeLinecap='round'
+      />
+    </svg>
+  );
+}
+
+function CallIcon() {
+  return (
+    <svg viewBox='0 0 24 24' aria-hidden='true'>
+      <rect
+        x='2.75'
+        y='6.25'
+        width='13'
+        height='11.5'
+        rx='2'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.8'
+      />
+      <path
+        d='m15.75 10.5 5.5-3.25v9.5l-5.5-3.25'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.8'
+        strokeLinejoin='round'
+      />
+    </svg>
+  );
+}
+
+function GroupIcon() {
+  return (
+    <svg viewBox='0 0 24 24' aria-hidden='true'>
+      <circle
+        cx='9'
+        cy='8.5'
+        r='2.75'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.8'
+      />
+      <path
+        d='M3.75 19c0-2.9 2.35-5.25 5.25-5.25S14.25 16.1 14.25 19'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.8'
+        strokeLinecap='round'
+      />
+      <path
+        d='M15.5 6.5a2.6 2.6 0 0 1 0 5M17.75 19c0-2.35-1.6-4.35-3.75-4.98'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.8'
+        strokeLinecap='round'
+      />
+    </svg>
+  );
+}
+
+const contributeActions = [
+  {
+    title: 'Good first issues',
+    description: 'Curated, beginner-friendly issues to make your first PR.',
+    cta: 'Browse issues',
+    href: 'https://github.com/openchoreo/openchoreo/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22',
+    icon: IssueIcon,
+  },
+  {
+    title: 'Community call',
+    description: 'Monthly call to hear project updates and engage with the community.',
+    cta: 'See schedule',
+    href: 'https://zoom-lfx.platform.linuxfoundation.org/meetings/openchoreo?view=list',
+    icon: CallIcon,
+  },
+  {
+    title: 'Working group',
+    description: 'Help shape direction on a focused area of the project.',
+    cta: 'Join a group',
+    href: 'https://github.com/openchoreo/openchoreo/tree/main/working-groups/observability-plane-architecture',
+    icon: GroupIcon,
+  },
+];
+
 export default function Community(): React.JSX.Element {
+  const now = useNow();
+  const { upcoming, past } = useMemo(() => splitEvents(events, now), [now]);
+
+  const filters = useMemo(
+    () => [
+      'All',
+      ...Array.from(new Set(upcoming.map((event) => event.category))),
+    ],
+    [upcoming],
+  );
+
   const [activeFilter, setActiveFilter] = useState('All');
+  const effectiveFilter = filters.includes(activeFilter) ? activeFilter : 'All';
 
   const filteredEvents = useMemo(() => {
-    if (activeFilter === 'All') {
-      return events;
+    if (effectiveFilter === 'All') {
+      return upcoming;
     }
 
-    return events.filter((event) => event.category === activeFilter);
-  }, [activeFilter]);
+    return upcoming.filter((event) => event.category === effectiveFilter);
+  }, [upcoming, effectiveFilter]);
+
+  const pastPreview = useMemo(() => past.slice(0, PAST_PREVIEW_COUNT), [past]);
 
   return (
     <Layout
@@ -137,15 +208,15 @@ export default function Community(): React.JSX.Element {
               {filters.map((filter) => {
                 const count =
                   filter === 'All'
-                    ? events.length
-                    : events.filter((event) => event.category === filter)
+                    ? upcoming.length
+                    : upcoming.filter((event) => event.category === filter)
                         .length;
 
                 return (
                   <button
                     className={[
                       'button',
-                      activeFilter === filter
+                      effectiveFilter === filter
                         ? 'button--primary'
                         : 'button--secondary',
                       styles.filterButton,
@@ -153,7 +224,7 @@ export default function Community(): React.JSX.Element {
                     type='button'
                     key={filter}
                     onClick={() => setActiveFilter(filter)}
-                    aria-pressed={activeFilter === filter}
+                    aria-pressed={effectiveFilter === filter}
                   >
                     {filter}
                     <span className={styles.filterCount}>{count}</span>
@@ -165,12 +236,21 @@ export default function Community(): React.JSX.Element {
             <div className={styles.eventGrid}>
               {filteredEvents.map((event) => {
                 const eventCategoryMeta = getCategoryMeta(event.category);
+                const cta = resolveCta(event, false);
+                const day = dayLabel(event);
 
                 return (
                   <article className={styles.eventCard} key={event.title}>
-                    <div className={styles.eventDate}>
-                      <span>{event.month}</span>
-                      <strong>{event.day}</strong>
+                    <div
+                      className={[
+                        styles.eventDate,
+                        day.length > 2 ? styles.eventDateRange : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      <span>{monthShort(event)}</span>
+                      <strong>{day}</strong>
                     </div>
 
                     <div className={styles.eventDivider} />
@@ -186,15 +266,15 @@ export default function Community(): React.JSX.Element {
                       </span>
 
                       <h3>{event.title}</h3>
-                      <p>{event.meta}</p>
+                      <p>{metaLine(event)}</p>
 
                       <div className={styles.eventActions}>
-                        {event.primaryActionHref ? (
+                        {cta.href ? (
                           <Link
                             className={`button button--primary button--sm ${styles.eventActionButton}`}
-                            to={event.primaryActionHref}
+                            to={cta.href}
                           >
-                            {event.primaryAction}
+                            {cta.label}
                           </Link>
                         ) : (
                           <button
@@ -202,7 +282,7 @@ export default function Community(): React.JSX.Element {
                             type='button'
                             disabled
                           >
-                            {event.primaryAction}
+                            {cta.label}
                           </button>
                         )}
                       </div>
@@ -217,18 +297,22 @@ export default function Community(): React.JSX.Element {
             </div>
 
             <div className={styles.pastEventList}>
-              {pastEvents.map((event) => (
-                <article className={styles.pastEvent} key={event.title}>
-                  <span>{event.date}</span>
-                  <strong>{event.title}</strong>
-                  <Link
-                    className='button button--link button--sm'
-                    to={event.actionHref}
-                  >
-                    {event.action}
-                  </Link>
-                </article>
-              ))}
+              {pastPreview.map((event) => {
+                const cta = resolveCta(event, true);
+
+                return (
+                  <article className={styles.pastEvent} key={event.title}>
+                    <span>{dateSpanLabel(event, 'short')}</span>
+                    <strong>{event.title}</strong>
+                    <Link
+                      className='button button--link button--sm'
+                      to={cta.href}
+                    >
+                      {cta.label}
+                    </Link>
+                  </article>
+                );
+              })}
             </div>
 
             <div className={styles.pastEventsMore}>
@@ -293,6 +377,37 @@ export default function Community(): React.JSX.Element {
             </div>
           </div>
         </section> */}
+        <section className={styles.section}>
+          <div className={styles.container}>
+            <h2>How to contribute</h2>
+            <p className={styles.sectionLead}>
+              Contribute through code, discussion, or planning, every path is
+              open to you.
+            </p>
+
+            <div className={styles.contributeGrid}>
+              {contributeActions.map((action) => {
+                const Icon = action.icon;
+
+                return (
+                  <article className={styles.contributeCard} key={action.title}>
+                    <div className={styles.contributeIcon} aria-hidden='true'>
+                      <Icon />
+                    </div>
+                    <h3>{action.title}</h3>
+                    <p>{action.description}</p>
+                    <Link
+                      className={`button button--primary button--sm ${styles.contributeButton}`}
+                      to={action.href}
+                    >
+                      {action.cta}
+                    </Link>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
         <section className={styles.section}>
           <div className={styles.container}>
             <h2>Join the community</h2>

@@ -39,10 +39,11 @@ metadata:
 
 ### WorkloadOwner
 
-| Field           | Type   | Required | Default | Description                                            |
-| --------------- | ------ | -------- | ------- | ------------------------------------------------------ |
-| `projectName`   | string | Yes      | -       | Name of the project that owns this workload (min: 1)   |
-| `componentName` | string | Yes      | -       | Name of the component that owns this workload (min: 1) |
+| Field           | Type   | Required | Default | Description                                                                                                                                                         |
+| --------------- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projectName`   | string | Yes      | -       | Name of the project that owns this workload (min: 1)                                                                                                                |
+| `componentName` | string | Yes      | -       | Name of the component that owns this workload (min: 1)                                                                                                              |
+| `releaseLine`   | string | No       | -       | [ReleaseLine](./releaseline.md) this workload belongs to. Empty for the component's main line. A DNS label of at most 63 characters, other than `main` or `default` |
 
 ### Container
 
@@ -135,19 +136,33 @@ Exactly one of `value` or `valueFrom` must be set.
 
 ### WorkloadDependencies
 
-| Field       | Type                                        | Required | Default | Description                   |
-| ----------- | ------------------------------------------- | -------- | ------- | ----------------------------- |
-| `endpoints` | [[WorkloadConnection](#workloadconnection)] | No       | []      | List of endpoint dependencies |
+| Field       | Type                                                        | Required | Default | Description                   |
+| ----------- | ----------------------------------------------------------- | -------- | ------- | ----------------------------- |
+| `endpoints` | [[WorkloadConnection](#workloadconnection)]                 | No       | []      | List of endpoint dependencies |
+| `resources` | [[WorkloadResourceDependency](#workloadresourcedependency)] | No       | []      | List of resource dependencies |
+
+A Workload can declare up to 50 entries in each list.
 
 ### WorkloadConnection
 
-| Field         | Type                                            | Required | Default | Description                                                             |
-| ------------- | ----------------------------------------------- | -------- | ------- | ----------------------------------------------------------------------- |
-| `project`     | string                                          | No       | -       | Name of the project that owns the target component                      |
-| `component`   | string                                          | Yes      | -       | Name of the target component                                            |
-| `name`        | string                                          | Yes      | -       | Name of the endpoint on the target component                            |
-| `visibility`  | string                                          | Yes      | -       | Visibility scope of the target endpoint (`project` or `namespace` only) |
-| `envBindings` | [ConnectionEnvBindings](#connectionenvbindings) | Yes      | -       | Environment variable bindings for connection details                    |
+| Field         | Type                                            | Required | Default | Description                                                                                                   |
+| ------------- | ----------------------------------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `project`     | string                                          | No       | -       | Name of the project that owns the target component                                                            |
+| `component`   | string                                          | Yes      | -       | Name of the target component                                                                                  |
+| `releaseLine` | string                                          | No       | -       | Release line of the target component. Empty targets its main line. It does not follow the consumer's own line |
+| `name`        | string                                          | Yes      | -       | Name of the endpoint on the target component                                                                  |
+| `visibility`  | string                                          | Yes      | -       | Visibility scope of the target endpoint (`project` or `namespace` only)                                       |
+| `envBindings` | [ConnectionEnvBindings](#connectionenvbindings) | Yes      | -       | Environment variable bindings for connection details                                                          |
+
+### WorkloadResourceDependency
+
+At least one of `envBindings` or `fileBindings` must be set. See [Resource Dependencies](../../../developer-guide/dependencies/resources.md).
+
+| Field          | Type              | Required | Default | Description                                                                                                                 |
+| -------------- | ----------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `ref`          | string            | Yes      | -       | Name of the target Resource. Must be in the same project as the consuming component, and unique within the Workload         |
+| `envBindings`  | map[string]string | No       | {}      | Maps a ResourceType output name to a container environment variable name                                                    |
+| `fileBindings` | map[string]string | No       | {}      | Maps a ResourceType output name to a container mount path. The output must be backed by `secretKeyRef` or `configMapKeyRef` |
 
 ### ConnectionEnvBindings
 
@@ -261,13 +276,19 @@ spec:
             version: 1.0.0
   dependencies:
     endpoints:
-      - component: postgres-db
+      - component: payment-service
         name: api
         visibility: project
         envBindings:
-          address: DATABASE_URL
+          address: PAYMENT_SERVICE_URL
+    resources:
+      - ref: order-postgres
+        envBindings:
           host: DB_HOST
           port: DB_PORT
+          username: DB_USER
+          password: DB_PASSWORD
+          database: DB_NAME
 ```
 
 ## Annotations
@@ -281,5 +302,7 @@ Workloads support the following annotations:
 
 ## Related Resources
 
+- [Workload](../../../developer-guide/workload/overview.md) - Guide to defining workloads
+- [Workload Descriptor](../../../developer-guide/workload/descriptor.md) - The `workload.yaml` file CI builds turn into a Workload CR
 - [Component](./component.md) - Components that own workloads
 - [ComponentRelease](../runtime/componentrelease.md) - Immutable release snapshots that include workload specs

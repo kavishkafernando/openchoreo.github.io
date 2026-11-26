@@ -39,6 +39,10 @@ By the end you will have all four running in a single k3d cluster.
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.32+                 | Kubernetes CLI            |
 | [Helm](https://helm.sh/docs/intro/install/)        | v3.12+                 | Package manager           |
 
+:::note Kubernetes version in this setup
+The local k3d cluster created by the quick start runs Kubernetes 1.32. The default build workflows set `hostUsers: false`, but [Kubernetes user namespaces](https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/) only take effect on Kubernetes 1.33 or later, so the setting is ignored here. This setup is intended for local development.
+:::
+
 Verify everything is installed:
 
 ```bash
@@ -291,6 +295,10 @@ kubectl wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all
 ```
 
+:::note[Internal API authentication]
+On this release, mutual TLS on the Cluster Gateway's **internal API** (port `:8444`) is **off by default**, which is fine for local single-cluster experimentation. To try the secure configuration — where the internal API requires a client certificate signed by a dedicated internal CA (provisioned automatically by cert-manager) — append `--set clusterGateway.internalMtls.enabled=true` to the install command above. See [Multi-Cluster Connectivity](../../platform-engineer-guide/multi-cluster-connectivity.mdx) for the full trust model.
+:::
+
 #### What Got Installed
 
 Here is what is now running in and around the control plane:
@@ -436,8 +444,13 @@ helm upgrade --install registry twuni/docker-registry \\
   {`helm upgrade --install openchoreo-workflow-plane ${versions.helmSource}/openchoreo-workflow-plane \\
   --version ${versions.helmChart} \\
   --namespace openchoreo-workflow-plane \\
-  --values https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/install/k3d/single-cluster/values-wp.yaml`}
+  --values https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/install/k3d/single-cluster/values-wp.yaml \\
+  --set argo-workflows.images.tag=v4.0.15`}
 </CodeBlock>
+
+:::note
+`argo-workflows.images.tag=v4.0.15` replaces the chart's default Argo Workflows v4.0.8, which still trusts the compromised eMudhra certificate authorities.
+:::
 
 #### Install Workflow Templates
 

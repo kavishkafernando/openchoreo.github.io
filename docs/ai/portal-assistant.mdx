@@ -5,8 +5,11 @@ description: Configure the Portal Assistant in OpenChoreo for AI-powered chat ov
 
 import CodeBlock from "@theme/CodeBlock";
 import { versions } from "../_constants.mdx";
+import PortalRequired from "../_partials/_portal-required.mdx";
 
 # Portal Assistant
+
+<PortalRequired />
 
 The Portal Assistant is an AI-powered, chat assistant for OpenChoreo. The Portal Assistant is read-only by contract. It can list, get, and query — it cannot create, update, delete, or trigger anything. Write-style requests are politely declined.
 
@@ -21,7 +24,7 @@ Before enabling the Portal Assistant, ensure the following:
 - (Optional) The [SRE Agent](./sre-agent.mdx) deployed if you want Tier-2 deep analysis from inside a chat.
 
 :::note
-The Portal Assistant streams responses over HTTP/ndjson and can issue several MCP tool calls per turn. Choose a model with reasonable streaming + tool-use quality (e.g. `openai:gpt-5`).
+The Portal Assistant streams responses over HTTP/ndjson and can issue several MCP tool calls per turn. Choose a model with reasonable streaming + tool-use quality (e.g. `openai:gpt-6-astra`).
 :::
 
 ## Enabling the Portal Assistant
@@ -85,16 +88,16 @@ Enable the Portal Assistant and point it at your secret + model. The `--reuse-va
   --reuse-values \\
   --set portalAssistant.enabled=true \\
   --set portalAssistant.llm.secretName=portal-assistant-secret \\
-  --set portalAssistant.llm.modelName=openai:gpt-5.4-mini`}
+  --set portalAssistant.llm.modelName=openai:gpt-5.6-luna`}
 </CodeBlock>
 
 :::note Supported Models
 Any `provider:model` string accepted by LangChain's `init_chat_model` works. Common picks:
 
-- `openai:gpt-5.4-mini` — lightweight, low-cost option for development and quick chats.
-- `openai:gpt-5` — base model, good default for development.
-- `openai:gpt-5.2-pro` — better tool-use reasoning, recommended for production.
-- `openai:gpt-5.4` — latest, highest-quality option.
+- `openai:gpt-5.6-luna` — lightweight, low-cost option for development and quick chats.
+- `openai:gpt-5.6` — balanced default for development.
+- `openai:gpt-6-astra` — latest flagship, best tool-use reasoning, recommended for production.
+- `openai:gpt-6-sol` — faster/cheaper alternative to `gpt-6-astra` for production.
   :::
 
 If your Observer or SRE Agent live outside the cluster, also point the Portal Assistant at them:
@@ -176,7 +179,7 @@ By default, the Portal Assistant is only reachable in-cluster. To expose `/api/v
 
 ```bash
 helm upgrade --install openchoreo-control-plane \
-  oci://ghcr.io/openchoreo/helm-charts/openchoreo-control-plane \
+  oci://cr.openchoreo.dev/openchoreo/helm-charts/openchoreo-control-plane \
   --namespace openchoreo-control-plane \
   --reuse-values \
   --set 'portalAssistant.http.hostnames[0]=portal-assistant.openchoreo.example.com'
@@ -215,7 +218,7 @@ openchoreoApi:
               roleRef:
                 name: backstage-catalog-reader # or a dedicated role that has portal-assistant:invoke
               entitlement:
-                claim: sub
+                claim: client_id
                 value: "<your-client-id>"
               effect: allow
 ```
@@ -239,22 +242,24 @@ See [Identity Provider Configuration](../platform-engineer-guide/identity-config
 </details>
 
 <details>
-<summary><strong>Bring-your-own auth-config</strong></summary>
+<summary><strong>Subject types</strong></summary>
 
-The Portal Assistant ships with a default `/app/auth-config.yaml` baked into the image that defines its action catalog (`portal-assistant:invoke`) and subject-type rules. To override, create a `ConfigMap` with your replacement file and point the chart at it:
+The Portal Assistant decides which subject a request comes from using the same rules as the OpenChoreo API. The chart renders them from `openchoreoApi.config.security.subjects` into a `portal-assistant-auth-config` ConfigMap, mounted at `/etc/openchoreo/auth-config.yaml`.
 
-```bash
-kubectl create configmap portal-assistant-auth-config \
-  -n openchoreo-control-plane \
-  --from-file=auth-config.yaml=./my-auth-config.yaml
+To change the claim a subject type is matched on, edit those values. For example, to match service accounts on `sub` instead of `client_id`:
 
-helm upgrade --install openchoreo-control-plane \
-  oci://ghcr.io/openchoreo/helm-charts/openchoreo-control-plane \
-  --namespace openchoreo-control-plane \
-  --reuse-values \
-  --set portalAssistant.authConfigConfigMap=portal-assistant-auth-config
+```yaml
+openchoreoApi:
+  config:
+    security:
+      subjects:
+        service_account:
+          mechanisms:
+            jwt:
+              entitlement:
+                claim: "sub"
 ```
 
-The chart will mount the ConfigMap at `/etc/openchoreo/auth-config.yaml` and set `AUTH_CONFIG_PATH` accordingly.
+The same values drive the OpenChoreo API, so the assistant and the API cannot disagree about who a caller is. See [Authorization](../platform-engineer-guide/authorization.md#subject-types).
 
 </details>

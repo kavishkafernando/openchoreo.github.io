@@ -180,7 +180,7 @@ spec:
     projectName: default
     componentName: greeter-service
   container:
-    image: ghcr.io/openchoreo/samples/greeter-service:latest
+    image: cr.openchoreo.dev/openchoreo/samples/greeter-service:latest
     args:
       - --port
       - "9090"
@@ -208,7 +208,7 @@ spec:
 After deployment, you can verify the injected environment variables by exec-ing into the pod:
 
 ```bash
-kubectl exec -n <data-plane-namespace> <pod-name> -- env | grep -E 'HELLO_WORLD|BAR_SERVICE'
+occ component exec <component-name> -- env | grep -E 'HELLO_WORLD|BAR_SERVICE'
 ```
 
 You should see the resolved addresses:
@@ -221,5 +221,7 @@ BAR_SERVICE_URL=http://bar-service.<namespace>.svc.cluster.local:9090
 ## Related Resources
 
 - [Workload](../workload/overview.md) - How to define Workloads
+- [Resource Dependencies](./resources.md) - Consuming project-bound Resources
+- [Local Development](../local-development.md) - Tunnel these dependencies to your machine with `occ remote`
 - [Workload API Reference](../../reference/api/application/workload.md) - Full CRD specification
 - [Component](../../reference/api/application/component.md) - Components that own workloads

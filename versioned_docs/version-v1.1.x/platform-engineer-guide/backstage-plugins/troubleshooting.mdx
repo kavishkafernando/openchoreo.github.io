@@ -105,7 +105,7 @@ Cannot link @openchoreo/backstage-plugin-react ... dependency
 
 **Cause:** you tried to use Yarn `portal:` to point at a sibling `openchoreo/backstage-plugins` checkout. Portal preserves each portal'd workspace's own `node_modules`, which produces duplicate `@backstage/*` package instances and broken service-ref identity.
 
-**Fix:** install from GitHub Packages instead of using `portal:`. See the [installation guide](./installing-into-existing-backstage.mdx#core) — `yarn add` against the published `@openchoreo/*` packages lets yarn dedupe `@backstage/*` against your host app's tree.
+**Fix:** install the published packages from npm instead of using `portal:`. See the [installation guide](./installing-into-existing-backstage.mdx#core) — `yarn add` against the published `@openchoreo/*` packages lets yarn dedupe `@backstage/*` against your host app's tree.
 
 ## React duplicate-instance error / "Invalid hook call"
 

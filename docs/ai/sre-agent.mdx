@@ -16,7 +16,7 @@ Before enabling the SRE Agent, ensure the following:
 
 - OpenChoreo Observability Plane installed with at least a logs module.
 - An LLM API key from [OpenAI](https://platform.openai.com/) (support for other providers coming soon)
-- [Alerting configured](../platform-engineer-guide/observability-alerting.mdx#ai-powered-root-cause-analysis) for your components with `triggerAiRca` enabled.
+- [Alerting configured](../platform-engineer-guide/observability/alerting.mdx#ai-powered-root-cause-analysis) for your components with `triggerAiRca` enabled.
 
 :::note
 Enable automatic RCA only for critical alerts to manage LLM costs.
@@ -81,7 +81,7 @@ Enable the SRE Agent and configure the LLM model. The `--reuse-values` flag pres
 </CodeBlock>
 
 :::note Supported Models
-The SRE Agent currently supports the [OpenAI](https://platform.openai.com/) GPT model series (e.g., `gpt-5.4`, `gpt-5.2-pro`, `gpt-5` etc.). Support for additional model providers is coming soon.
+The SRE Agent currently supports the [OpenAI](https://platform.openai.com/) GPT model series (e.g., `gpt-6-astra`, `gpt-5.6`, `gpt-5.4`, `gpt-5` etc.). Support for additional model providers is coming soon.
 :::
 
 If the observability plane and control plane are in separate clusters, also set `rca.openchoreoApiUrl` to the control plane API URL (defaults to `http://api.openchoreo.localhost:8080`).
@@ -99,12 +99,12 @@ Configure `rcaAgentURL` in the `ClusterObservabilityPlane` resource so the UI kn
 Check that the SRE Agent pod is running:
 
 ```bash
-kubectl get pods -n openchoreo-observability-plane -l app.kubernetes.io/component=ai-rca-agent
+kubectl get pods -n openchoreo-observability-plane -l app.kubernetes.io/component=sre-agent
 ```
 
 If you are using the default identity provider (ThunderID) and the default SQLite report storage, your setup is complete.
 
-For a full, end-to-end walkthrough of setting up alerting with AI-powered root cause analysis, refer to the [URL Shortener sample](https://github.com/openchoreo/openchoreo/tree/main/samples/from-source/projects/url-shortener).
+For a full, end-to-end walkthrough of setting up alerting with AI-powered root cause analysis, refer to the [URL Shortener sample](https://github.com/openchoreo/openchoreo/tree/main/samples/from-source/projects/url-shortener), or follow [Tutorial - Identify and Fix a Root Cause using the SRE Agent](../tutorials/identify-and-fix-root-cause-with-sre-agent.mdx).
 
 <details id="authentication-and-authorization">
 <summary><strong>Authentication and Authorization (External IdP)</strong></summary>
@@ -140,7 +140,7 @@ See [Identity Provider Configuration](../platform-engineer-guide/identity-config
 
 #### Authorization
 
-The SRE Agent uses the `client_credentials` grant to authenticate with the OpenChoreo API as a service account. The API matches the `sub` claim in the issued JWT to identify the caller, so the new client must be granted the `rca-agent` role via a bootstrap authorization mapping.
+The SRE Agent uses the `client_credentials` grant to authenticate with the OpenChoreo API as a service account. The API matches the `client_id` claim in the issued JWT to identify the caller, so the new client must be granted the `rca-agent` role via a bootstrap authorization mapping.
 
 Add the following to your Control Plane values override, replacing `<your-client-id>` with the same client ID used above:
 
@@ -155,7 +155,7 @@ openchoreoApi:
               roleRef:
                 name: rca-agent
               entitlement:
-                claim: sub
+                claim: client_id
                 value: "<your-client-id>"
               effect: allow
 ```

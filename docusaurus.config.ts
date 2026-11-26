@@ -1,25 +1,108 @@
 import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import fs from 'fs';
 import path from 'path';
 import versions from './versions.json';
+import ecosystemEntries from './src/data/marketplace-plugins.json';
+import { itemSlug, itemPath } from './src/utils/ecosystemItems';
 
-// Latest docs version (Docusaurus prepends new versions to versions.json).
-const latestVersion = versions[0];
+// Ecosystem items moved from /ecosystem/item/<id> to /ecosystem/<slug>. The old
+// URLs are linked from the docs, the blog and externally, so keep them working:
+// maps each item's current path to the old paths that should redirect to it.
+// Keyed off the entry's id rather than its slug, so an item that later takes a
+// custom slug does not silently lose its original URL.
+const ecosystemLegacyPaths = new Map<string, string[]>(
+  ecosystemEntries.map((entry) => [
+    itemPath(entry),
+    [
+      ...new Set([entry.id, itemSlug(entry)].map((s) => `/ecosystem/item/${s}`)),
+      ...(entry.id === itemSlug(entry) ? [] : [`/ecosystem/${entry.id}`]),
+    ],
+  ]),
+);
+
+// The docs version served unprefixed at /docs/* — must match `lastVersion` in
+// the docs preset below. This is NOT always versions[0]: a pre-release can be
+// prepended to versions.json while a stable release stays the default.
+const lastVersion = 'v1.3.x';
+const latestVersion = lastVersion;
+
+// Docs pages that moved: maps a page's current id to the ids it had before, so
+// links to the old URLs keep working. A docs version that still has the page at
+// its old path keeps serving it there; the redirect only applies to versions
+// where the old page is gone.
+const movedDocs = new Map<string, string[]>([
+  [
+    'platform-engineer-guide/observability/overview',
+    ['platform-engineer-guide/observability-alerting'],
+  ],
+  [
+    'platform-engineer-guide/observability/platform-logs',
+    ['platform-engineer-guide/platform-logs'],
+  ],
+  [
+    'platform-engineer-guide/observability/cost-insights',
+    ['platform-engineer-guide/cost-insights'],
+  ],
+  [
+    'platform-engineer-guide/observability/delivery-insights',
+    ['platform-engineer-guide/delivery-insights'],
+  ],
+  [
+    'platform-engineer-guide/observability/audit-logging',
+    ['platform-engineer-guide/audit-logging'],
+  ],
+  [
+    'developer-guide/monitor-and-troubleshoot/troubleshooting',
+    ['developer-guide/deploying-applications/logs-and-troubleshooting'],
+  ],
+]);
+
+// Old paths that should redirect to a moved docs page, in the same docs
+// version (/docs/next/, /docs/<version>/ or the unprefixed latest version).
+function movedDocRedirects(existingPath: string): string[] {
+  const match = existingPath.match(/^\/docs\/(.+?)\/?$/);
+  if (!match) return [];
+  const [first, ...rest] = match[1].split('/');
+  const prefixed = first === 'next' || versions.includes(first);
+  const oldIds = movedDocs.get(prefixed ? rest.join('/') : match[1]);
+  if (!oldIds) return [];
+
+  const version = prefixed ? first : lastVersion;
+  const contentDir =
+    version === 'next' ? 'docs' : `versioned_docs/version-${version}`;
+  const oldPageExists = (id: string) =>
+    ['.md', '.mdx'].some((ext) =>
+      fs.existsSync(path.join(__dirname, contentDir, id + ext)),
+    );
+  const trailingSlash = existingPath.endsWith('/') ? '/' : '';
+  return oldIds
+    .filter((id) => !oldPageExists(id))
+    .map((id) => `/docs/${prefixed ? `${first}/` : ''}${id}${trailingSlash}`);
+}
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
   title: 'OpenChoreo',
   tagline:
-    'A complete, open-source developer platform for Kubernetes, ready to use from day one, built to integrate with your stack.',
+    'Build your Internal Developer Platform with OpenChoreo. Go from zero to platform, or take what you have further. One IDP for humans and agents.',
   favicon: 'img/favicon.ico',
+  customFields: {
+    buildTimestamp: new Date().toISOString(),
+    // The canonical one-sentence definition of OpenChoreo. Used as the
+    // homepage meta description and structured data, the llms.txt summary
+    // and the "What is OpenChoreo?" homepage section. The docs overview page
+    // and README.md repeat it word for word; keep them in sync.
+    definition:
+      'OpenChoreo is an open-source, self-hostable internal developer platform to run your apps, infrastructure resources and AI agents on Kubernetes.',
+  },
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },
-
   // Set the production url of your site here
   url: 'https://openchoreo.dev',
   // Set the /<baseUrl>/ pathname under which your site is served
@@ -59,14 +142,33 @@ const config: Config = {
     './plugins/docusaurus-plugin-markdown-export',
     './plugins/docusaurus-plugin-llms-txt',
     './plugins/docusaurus-plugin-docs-scripts',
+    './plugins/docusaurus-plugin-ecosystem-items',
+    './plugins/docusaurus-plugin-github-repo',
+    './plugins/docusaurus-plugin-homepage-images',
+    './plugins/docusaurus-plugin-blog-thumbnails',
+    ['./plugins/docusaurus-plugin-blog-pagination', { postsPerPage: 12 }],
     [
       '@docusaurus/plugin-client-redirects',
       {
+        // Blog posts whose slug changed after publishing.
+        redirects: [
+          {
+            from: '/blog/building-an-internal-developer-platform-on-azure',
+            to: '/blog/how-to-build-an-internal-developer-platform-on-azure/',
+          },
+        ],
         // Docusaurus serves the latest docs version unprefixed (/docs/foo),
         // so /docs/<latestVersion>/foo 404s. For each real /docs/foo page,
         // register /docs/<latestVersion>/foo as an alias that redirects to it.
         // Reads latestVersion from versions.json, so no manual updates per release.
+        // Moved docs pages also get redirects from their old paths (movedDocs).
         createRedirects(existingPath: string) {
+          // Routes reach this hook with a trailing slash (/ecosystem/foo/).
+          const ecosystemLegacy = ecosystemLegacyPaths.get(
+            existingPath.replace(/\/$/, ''),
+          );
+          if (ecosystemLegacy) return ecosystemLegacy;
+
           const isDocsPath =
             existingPath === '/docs' || existingPath.startsWith('/docs/');
           const isVersionedDocsPath = versions.some((v) => {
@@ -77,14 +179,15 @@ const config: Config = {
             );
           });
           const isLatestDocsPath = isDocsPath && !isVersionedDocsPath;
+          const moved = movedDocRedirects(existingPath);
 
-          if (!isLatestDocsPath) return undefined;
+          if (!isLatestDocsPath) return moved.length ? moved : undefined;
 
           const aliasWithLatestVersionPrefix = existingPath.replace(
             /^\/docs/,
             `/docs/${latestVersion}`,
           );
-          return [aliasWithLatestVersionPrefix];
+          return [aliasWithLatestVersionPrefix, ...moved];
         },
       },
     ],
@@ -119,20 +222,35 @@ const config: Config = {
       'classic',
       {
         docs: {
-          lastVersion: 'v1.1.x',
+          lastVersion,
           versions: {
+            // Unreleased docs at /docs/next/. Nearly every page duplicates one
+            // in the latest release, so keep them out of search results.
+            current: {
+              noIndex: true,
+            },
+            'v1.4.0-m.3': {
+              label: 'v1.4.0-m.3 (pre-release)',
+              banner: 'unreleased',
+              noIndex: true,
+            },
+            'v1.3.x': {
+              label: 'v1.3.x',
+            },
+            'v1.2.x': {
+              label: 'v1.2.x',
+              banner: 'none',
+              noIndex: true,
+            },
             'v1.1.x': {
               label: 'v1.1.x',
+              banner: 'none',
+              noIndex: true,
             },
             'v1.0.x': {
-              label: 'v1.0.x',
-              banner: 'none',
-            },
-            'v0.17.x': {
-              label: 'v0.17.x',
-            },
-            'v0.16.x': {
-              label: 'v0.16.x',
+              label: 'v1.0.x (EOL)',
+              banner: 'unmaintained',
+              noIndex: true,
             },
           },
           sidebarPath: './sidebars.ts',
@@ -144,12 +262,17 @@ const config: Config = {
             'https://github.com/openchoreo/openchoreo.github.io/edit/main/',
         },
         blog: {
+          blogTitle: 'OpenChoreo Blog',
+          blogDescription:
+            'Guides, release notes and stories from the OpenChoreo maintainers and the community on platform engineering, internal developer platforms and Kubernetes.',
           showReadingTime: true,
           postsPerPage: 'ALL',
           feedOptions: {
             type: ['rss', 'atom'],
             xslt: true,
           },
+          blogSidebarTitle: 'All posts',
+          blogSidebarCount: 'ALL',
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
@@ -161,6 +284,20 @@ const config: Config = {
         },
         theme: {
           customCss: './src/css/custom.css',
+        },
+        sitemap: {
+          // Google ignores changefreq and priority but uses lastmod when it is
+          // accurate. Dates come from git (showLastUpdateTime above).
+          lastmod: 'date',
+          changefreq: null,
+          priority: null,
+          // Listing pages with little content of their own.
+          ignorePatterns: [
+            '/search/**',
+            '/blog/tags/**',
+            '/blog/authors/**',
+            '/blog/archive/**',
+          ],
         },
         gtag: {
           trackingID: 'G-5EY968JNZT',
@@ -189,13 +326,16 @@ const config: Config = {
     },
   ],
 
-  clientModules: [path.join(__dirname, 'src/clientModules/gtagGuard.ts')],
+  clientModules: [
+    path.join(__dirname, 'src/clientModules/gtagGuard.ts'),
+    path.join(__dirname, 'src/clientModules/webVitals.ts'),
+  ],
 
   themeConfig: {
     announcementBar: {
-      id: 'release_v1_1_1',
+      id: 'release_v1_3_3',
       content:
-        '🎉️ OpenChoreo <a target="_blank" rel="noopener noreferrer" href="https://github.com/openchoreo/openchoreo/releases/tag/v1.1.1">v1.1.1</a> has been released! 🎉',
+        '🎉️ OpenChoreo <a target="_blank" rel="noopener noreferrer" href="https://github.com/openchoreo/openchoreo/releases/tag/v1.3.3">v1.3.3</a> has been released! 🎉',
       isCloseable: true,
     },
     docsearch: {
@@ -238,13 +378,31 @@ const config: Config = {
               to: '/explore/observability',
               label: 'Observability',
             },
+            {
+              to: '/explore/agentic-developer-platform',
+              label: 'Agentic Developer Platform',
+            },
           ],
         },
         {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',
           position: 'left',
-          label: 'Documentation',
+          label: 'Docs',
+        },
+        {
+          type: 'dropdown',
+          label: 'Learn',
+          position: 'left',
+          items: [
+            {
+              label: 'Self-paced courses',
+              href: 'https://training.linuxfoundation.org/?s=openchoreo&filter=resources',
+              className: 'navbar-no-external-icon',
+            },
+            { label: 'Enterprise training programs', to: '/enterprise/#training' },
+            { label: 'Community support', to: '/slack' },
+          ],
         },
         { to: '/ecosystem', label: 'Ecosystem', position: 'left' },
         { to: '/blog', label: 'Blog', position: 'left' },
@@ -255,14 +413,8 @@ const config: Config = {
           position: 'right',
         },
         {
-          type: 'custom-gitHubStars',
+          type: 'custom-gitHubRepo',
           position: 'right',
-        },
-        {
-          href: 'https://github.com/openchoreo/openchoreo',
-          position: 'right',
-          className: 'header-github-link',
-          'aria-label': 'GitHub repository',
         },
         {
           to: '/slack',

@@ -18,7 +18,18 @@ const sidebars: SidebarsConfig = {
       type: "category",
       label: "Overview",
       collapsed: false,
-      items: ["overview/what-is-openchoreo", "overview/architecture"],
+      items: [
+        {
+          type: "doc",
+          id: "overview/what-is-openchoreo",
+          label: "What is OpenChoreo",
+        },
+        {
+          type: "doc",
+          id: "overview/architecture",
+          label: "Architecture",
+        },
+      ],
     },
     {
       type: "category",
@@ -84,30 +95,38 @@ const sidebars: SidebarsConfig = {
             "Install, configure, and connect your OpenChoreo infrastructure",
           items: [
             "platform-engineer-guide/deployment-topology",
+            "platform-engineer-guide/production-sizing",
             "platform-engineer-guide/multi-cluster-connectivity",
+            "platform-engineer-guide/cluster-gateway-ha",
+            "platform-engineer-guide/air-gapped-installation",
             "platform-engineer-guide/external-ca-tls-setup",
             "platform-engineer-guide/namespace-management",
             "platform-engineer-guide/container-registry-configuration",
             "platform-engineer-guide/identity-configuration",
-            "platform-engineer-guide/backstage-configuration",
-            "platform-engineer-guide/backstage-ownership",
-            "platform-engineer-guide/backstage-scaffolder-templates",
             "platform-engineer-guide/secret-management",
+            "platform-engineer-guide/local-development-setup",
           ],
         },
         {
           type: "category",
-          label: "Backstage Plugins",
+          label: "Developer Portal",
           description:
-            "Install OpenChoreo plugins into your existing Backstage app",
+            "Configure the bundled Backstage portal, or install the OpenChoreo plugins into your own Backstage app",
           link: {
             type: "doc",
             id: "platform-engineer-guide/backstage-plugins/overview",
           },
           items: [
+            "platform-engineer-guide/backstage-configuration",
+            "platform-engineer-guide/backstage-ownership",
+            "platform-engineer-guide/backstage-scaffolder-templates",
+            "platform-engineer-guide/backstage-plugins/migration-1.1-to-1.2",
             "platform-engineer-guide/backstage-plugins/installing-into-existing-backstage",
+            "platform-engineer-guide/backstage-plugins/custom-portal",
+            "platform-engineer-guide/backstage-plugins/feature-discovery",
             "platform-engineer-guide/backstage-plugins/catalog-sync",
             "platform-engineer-guide/backstage-plugins/entity-views",
+            "platform-engineer-guide/backstage-plugins/theming",
             "platform-engineer-guide/backstage-plugins/permission-policy",
             "platform-engineer-guide/backstage-plugins/troubleshooting",
             "platform-engineer-guide/backstage-plugins/compatibility-matrix",
@@ -124,12 +143,19 @@ const sidebars: SidebarsConfig = {
             "platform-engineer-guide/component-types/schema-syntax",
             "platform-engineer-guide/component-types/patching-syntax",
             "platform-engineer-guide/component-types/validation-rules",
+            "platform-engineer-guide/component-types/release-lines",
+            "platform-engineer-guide/component-types/pod-rollouts",
           ],
         },
         {
           type: "doc",
           id: "platform-engineer-guide/resource-types",
           label: "Resource Types",
+        },
+        {
+          type: "doc",
+          id: "platform-engineer-guide/project-types",
+          label: "Project Types",
         },
         {
           type: "category",
@@ -168,8 +194,50 @@ const sidebars: SidebarsConfig = {
         {
           type: "category",
           label: "Observability",
-          description: "Configure monitoring alerts and notification channels",
-          items: ["platform-engineer-guide/observability-alerting"],
+          description:
+            "Logs, metrics, traces, alerting and insights from the observability plane",
+          link: {
+            type: "doc",
+            id: "platform-engineer-guide/observability/overview",
+          },
+          items: [
+            {
+              type: "category",
+              label: "Logs",
+              link: {
+                type: "doc",
+                id: "platform-engineer-guide/observability/logs",
+              },
+              items: ["platform-engineer-guide/observability/platform-logs"],
+            },
+            "platform-engineer-guide/observability/metrics",
+            {
+              type: "category",
+              label: "Traces",
+              link: {
+                type: "doc",
+                id: "platform-engineer-guide/observability/traces",
+              },
+              items: [
+                "platform-engineer-guide/observability/raw-trace-queries",
+              ],
+            },
+            {
+              type: "category",
+              label: "Alerting",
+              link: {
+                type: "doc",
+                id: "platform-engineer-guide/observability/alerting",
+              },
+              items: [
+                "platform-engineer-guide/observability/notification-channels",
+              ],
+            },
+            "platform-engineer-guide/observability/audit-logging",
+            "platform-engineer-guide/observability/observer-external-idp",
+            "platform-engineer-guide/observability/cost-insights",
+            "platform-engineer-guide/observability/delivery-insights",
+          ],
         },
         {
           type: "category",
@@ -247,8 +315,31 @@ const sidebars: SidebarsConfig = {
           description: "CLI configuration, upgrades, and day-2 operations",
           items: [
             "platform-engineer-guide/cli-configuration",
-            "platform-engineer-guide/upgrades",
+            {
+              type: "category",
+              label: "Upgrades",
+              description:
+                "Upgrade policy and per-version upgrade guides for OpenChoreo",
+              link: {
+                type: "generated-index",
+                title: "Upgrades",
+                description:
+                  "Upgrade policy and per-version upgrade guides for OpenChoreo",
+              },
+              items: [
+                "platform-engineer-guide/upgrades/overview",
+                "platform-engineer-guide/upgrades/v1.3-to-v1.4",
+                "platform-engineer-guide/upgrades/v1.2-to-v1.3",
+                "platform-engineer-guide/upgrades/v1.1-to-v1.2",
+                "platform-engineer-guide/upgrades/v1.0-to-v1.1",
+              ],
+            },
             "platform-engineer-guide/cluster-agent-rbac",
+            {
+              type: "doc",
+              id: "platform-engineer-guide/resource-tree-rules",
+              label: "Resource Tree Rules",
+            },
           ],
         },
       ],
@@ -289,6 +380,11 @@ const sidebars: SidebarsConfig = {
             "developer-guide/workload/overview",
             {
               type: "doc",
+              id: "developer-guide/workload/descriptor",
+              label: "Workload Descriptor",
+            },
+            {
+              type: "doc",
               id: "developer-guide/dependencies/endpoints",
               label: "Endpoint Dependencies",
             },
@@ -298,6 +394,11 @@ const sidebars: SidebarsConfig = {
               label: "Resource Dependencies",
             },
           ],
+        },
+        {
+          type: "doc",
+          id: "developer-guide/local-development",
+          label: "Local Development",
         },
         {
           type: "category",
@@ -310,7 +411,6 @@ const sidebars: SidebarsConfig = {
           },
           items: [
             "developer-guide/workflows/ci/overview",
-            "developer-guide/workflows/ci/workload-descriptor",
             "developer-guide/workflows/ci/auto-build",
             "developer-guide/workflows/ci/private-repository",
           ],
@@ -327,8 +427,26 @@ const sidebars: SidebarsConfig = {
           items: [
             "developer-guide/deploying-applications/overview",
             "developer-guide/deploying-applications/deploy-and-promote",
+            "developer-guide/deploying-applications/project-releases",
             "developer-guide/deploying-applications/environment-overrides",
-            "developer-guide/deploying-applications/logs-and-troubleshooting",
+            "developer-guide/deploying-applications/release-lines",
+          ],
+        },
+        {
+          type: "category",
+          label: "Monitor and Troubleshoot",
+          description:
+            "Logs, events, metrics, traces, alerts and incidents of your components",
+          link: {
+            type: "doc",
+            id: "developer-guide/monitor-and-troubleshoot/overview",
+          },
+          items: [
+            "developer-guide/monitor-and-troubleshoot/logs-and-events",
+            "developer-guide/monitor-and-troubleshoot/metrics",
+            "developer-guide/monitor-and-troubleshoot/traces",
+            "developer-guide/monitor-and-troubleshoot/alerts-and-incidents",
+            "developer-guide/monitor-and-troubleshoot/troubleshooting",
           ],
         },
       ],
@@ -347,6 +465,8 @@ const sidebars: SidebarsConfig = {
         "tutorials/deploy-with-configurations",
         "tutorials/component-alerts-and-incidents",
         "tutorials/configure-budget-alert-and-cost-analysis",
+        "tutorials/identify-and-fix-root-cause-with-sre-agent",
+        "tutorials/maintain-provisioned-resources",
       ],
     },
     {
@@ -434,6 +554,11 @@ const sidebars: SidebarsConfig = {
                   type: "doc",
                   id: "reference/api/application/component",
                   label: "Component",
+                },
+                {
+                  type: "doc",
+                  id: "reference/api/application/releaseline",
+                  label: "ReleaseLine",
                 },
                 {
                   type: "doc",
@@ -546,6 +671,16 @@ const sidebars: SidebarsConfig = {
                     },
                     {
                       type: "doc",
+                      id: "reference/api/platform/projecttype",
+                      label: "ProjectType",
+                    },
+                    {
+                      type: "doc",
+                      id: "reference/api/platform/clusterprojecttype",
+                      label: "ClusterProjectType",
+                    },
+                    {
+                      type: "doc",
                       id: "reference/api/platform/workflow",
                       label: "Workflow",
                     },
@@ -590,6 +725,11 @@ const sidebars: SidebarsConfig = {
                       type: "doc",
                       id: "reference/api/platform/resourcereleasebinding",
                       label: "ResourceReleaseBinding",
+                    },
+                    {
+                      type: "doc",
+                      id: "reference/api/platform/projectreleasebinding",
+                      label: "ProjectReleaseBinding",
                     },
                   ],
                 },
@@ -668,6 +808,11 @@ const sidebars: SidebarsConfig = {
                   type: "doc",
                   id: "reference/api/runtime/resourcerelease",
                   label: "ResourceRelease",
+                },
+                {
+                  type: "doc",
+                  id: "reference/api/runtime/projectrelease",
+                  label: "ProjectRelease",
                 },
                 {
                   type: "doc",

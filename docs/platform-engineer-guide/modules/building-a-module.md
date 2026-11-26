@@ -110,6 +110,57 @@ The module's Helm chart should deploy both the backend and the adapter, and conf
 
 Reference implementation: [observability-logs-openobserve module](https://github.com/openchoreo/community-modules/tree/main/observability-logs-openobserve)
 
+##### Audit Logs
+
+A logs module can also collect, store and serve OpenChoreo's [audit trail](../observability/audit-logging.mdx). Audit support is optional, but a module that doesn't provide it must say so explicitly.
+
+The logging adapter:
+
+- Implements `POST /api/v1alpha1/audit-logs/query` from the [Logging Adapter API](../observability-logging-adapter-api).
+- **Answers `501 Not Implemented` if it doesn't support audit queries, never an empty `200`.** An empty success reads as "nothing happened", which an audit query must never report falsely. A deployment that forwards the trail elsewhere and keeps no queryable copy answers `501` too.
+- Pages by time window. It returns at most `limit` records ordered by `event_time`, and the caller continues by narrowing the window, so the adapter keeps no scroll state.
+
+The module's collector:
+
+- Routes records whose message is `AUDIT-LOG` to a **separate** index or stream with its own retention (the reference modules default to 365 days), not the container logs destination.
+- Accepts audit records only from an allowlist of producers (`openchoreo-api`'s `api-server` container and `observer`'s `observer` container, in their default namespaces), matched on the container log file name that the kubelet writes, **never on the content of the log line**. Otherwise any workload can forge audit records by printing them.
+- Exposes the allowlist as configuration so operators can adjust it for non-default namespaces, and documents that each entry grants write access to the trail.
+- Can run on its own in the control plane cluster, with only the collector enabled, so audit records from `openchoreo-api` reach the observability plane in multi-cluster setups.
+
+Reference implementations: [observability-logs-opensearch](https://github.com/openchoreo/community-modules/tree/main/observability-logs-opensearch#enable-audit-log-collection) and [observability-logs-openobserve](https://github.com/openchoreo/community-modules/tree/main/observability-logs-openobserve#enable-audit-log-collection).
+
+| Logs module                      | Audit logs |
+| -------------------------------- | ---------- |
+| `observability-logs-opensearch`  | Supported  |
+| `observability-logs-openobserve` | Supported  |
+
+When a module gains audit support, the pull request that adds it updates this table.
+
+##### Platform Logs
+
+A logs module can also serve [platform logs](../observability/platform-logs.mdx): everything its collector stores, queried by raw Kubernetes coordinates instead of OpenChoreo concepts. Platform logs support is optional, but a module that doesn't provide it must say so explicitly.
+
+The logging adapter:
+
+- Implements `POST /api/v1alpha1/platform-logs/query` and `POST /api/v1alpha1/platform-logs/filter-values` from the [Logging Adapter API](../observability-logging-adapter-api).
+- **Answers `501 Not Implemented` if it doesn't support platform logs, never an empty `200`**, so clients can tell an unsupported module from a quiet cluster.
+- Filters by cluster, Kubernetes namespace, pod, container, log level and search phrase, where values within a filter are OR-ed and separate filters are AND-ed, and by an equality-based label selector over the pod labels, where a comma means AND.
+
+The module's collector:
+
+- Keeps the pod's labels on every record, so the `openchoreo.dev/plane` and `openchoreo.dev/plane-id` labels that the OpenChoreo plane charts set can be queried. Label keys vary per pod, so the store must index them without a fixed schema.
+- Stamps every record with a cluster name taken from a required, operator-set value (the reference modules use `fluentBitCustomizations.clusterInstance`), and refuses to install without it.
+- Stores platform logs with the container logs, so no separate destination or retention is needed.
+
+Reference implementations: [observability-logs-opensearch](https://github.com/openchoreo/community-modules/tree/main/observability-logs-opensearch) and [observability-logs-openobserve](https://github.com/openchoreo/community-modules/tree/main/observability-logs-openobserve).
+
+| Logs module                      | Platform logs      |
+| -------------------------------- | ------------------ |
+| `observability-logs-opensearch`  | Supported (0.6.0+) |
+| `observability-logs-openobserve` | Supported (0.7.0+) |
+
+When a module gains platform logs support, the pull request that adds it updates this table.
+
 ##### Observability Metrics Module
 
 Like the logs module, a metrics module follows the same adapter pattern. The module must provide two components:
@@ -138,6 +189,23 @@ The tracing adapter must:
 - Implement the endpoints defined in the [Tracing Adapter API specification](../observability-tracing-adapter-api)
 - Translate the standardized trace query parameters (time range, search scope, sort order) into the backend's native query format.
 - Return traces, spans, and span details in the standardized response format, including span attributes and resource attributes.
+
+##### Raw Trace Queries
+
+A tracing module can also serve [raw trace queries](../observability/raw-trace-queries.mdx): the backend's own search request, run against the trace data, with the backend's own response returned. Raw query support is optional, but a module that doesn't provide it must say so explicitly.
+
+The tracing adapter:
+
+- Implements `POST /api/v1alpha1/traces/raw-query` from the [Tracing Adapter API](../observability-tracing-adapter-api).
+- **Answers `501 Not Implemented` if it doesn't support raw queries**, so clients can tell an unsupported module from a failing one.
+- Takes the backend's native request as the body, in the media type the backend uses (`application/json` or `text/plain`), and answers `415` for any other.
+- Calls only the backend's read-only search or query API, with read-only backend credentials limited to the trace data it serves, never other data in the same backend.
+- Runs the request as written, overriding only the fields it owns, such as the query timeout, so a request can't extend them.
+- Returns the backend's response unchanged on success.
+- Stops the query at a configurable timeout and answers `504`, and rejects a result larger than a configurable maximum response size rather than returning it partially.
+- Answers `400` for a request the backend rejects, saying what it expects.
+
+The module's README lists raw trace queries under **Features**, with the module version that added them and the setup they need, and documents the request the module takes. Reference implementation: [observability-tracing-opensearch](https://github.com/openchoreo/community-modules/tree/main/observability-tracing-opensearch#raw-trace-queries).
 
 ##### Unit Testing
 

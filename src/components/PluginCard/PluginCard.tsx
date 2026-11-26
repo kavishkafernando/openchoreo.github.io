@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
+import { itemPath } from "@site/src/utils/ecosystemItems";
 import styles from "./PluginCard.module.css";
 
 interface Plugin {
   id: string;
+  slug?: string;
   group: string;
   name: string;
   description: string;
@@ -44,7 +46,8 @@ export const PluginCard: React.FC<PluginCardProps> = ({ plugin }) => {
   const groupClass = GROUP_CLASSES[plugin.group] ?? styles.groupModule;
   const defaultLogo = useBaseUrl("/img/openchoreo-logo.svg");
   const [logoFailed, setLogoFailed] = useState(false);
-  const logoSrc = plugin.logoUrl && !logoFailed ? plugin.logoUrl : defaultLogo;
+  const usingPlaceholderLogo = !plugin.logoUrl || logoFailed;
+  const logoSrc = usingPlaceholderLogo ? defaultLogo : plugin.logoUrl;
 
   return (
     <article className={styles.card}>
@@ -52,7 +55,8 @@ export const PluginCard: React.FC<PluginCardProps> = ({ plugin }) => {
         <div className={styles.logoWrap}>
           <img
             src={logoSrc}
-            alt={`${plugin.name} logo`}
+            alt={usingPlaceholderLogo ? "" : `${plugin.name} logo`}
+            aria-hidden={usingPlaceholderLogo || undefined}
             className={styles.logo}
             onError={() => setLogoFailed(true)}
           />
@@ -80,7 +84,7 @@ export const PluginCard: React.FC<PluginCardProps> = ({ plugin }) => {
           <span className={styles.comingSoon}>Coming Soon</span>
         ) : (
           <Link
-            to={`/ecosystem/item/?id=${plugin.id}`}
+            to={itemPath(plugin)}
             aria-label={`View ${plugin.name}`}
             className={styles.viewButton}
           >

@@ -31,7 +31,8 @@ OpenChoreo’s component alert architecture follows a role-based workflow:
 Before you begin, ensure you have:
 
 - A running OpenChoreo **control plane**, **data plane**, and **observability plane**
-- `kubectl` configured to talk to the cluster where OpenChoreo is installed
+- The [`occ` CLI](../getting-started/cli-installation.mdx) installed and configured for your OpenChoreo installation
+- `kubectl` configured to talk to the cluster where OpenChoreo is installed (for the Kubernetes-level steps in this guide)
 
 ## Platform Engineer Workflow
 
@@ -155,7 +156,7 @@ spec:
 
   validations:
     - rule: "${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
-      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or set environment.defaultNotificationChannel."
+      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or mark an ObservabilityAlertsNotificationChannel of this environment as the default (spec.isEnvDefault: true)."
     - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiRca == false || environmentConfigs.actions.incident.enabled == true}"
       message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
     - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || environmentConfigs.actions.incident.enabled == true}"
@@ -203,18 +204,32 @@ spec:
               triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}
 EOF
 
-kubectl get clustertrait observability-alert-rule
+occ clustertrait get observability-alert-rule
 ```
 
 ### Step 2: Configure Notification Channels (One-Time Setup per Environment)
 
 Platform Engineers can configure one or more notification channels per environment (email/webhook), then reference them across all alert rules in that environment.
-The first notification channel created in an environment is marked as that environment’s **default** notification channel (used when an alert doesn’t explicitly select channels).
+An alert that doesn’t explicitly select channels uses the environment’s **default** notification channel, which is the channel with `isEnvDefault: true`. OpenChoreo does not pick a default for you. The email channel below is marked as the default. If you create only the webhook channel, add `isEnvDefault: true` to it instead.
 
 #### Email Notification Channel Example
 
 If your organization uses SMTP email for notifications, you can create an email notification channel by applying the following YAML replacing the placeholder values with your own.
 Otherwise, you can skip this step and use a webhook notification channel instead.
+
+First, create the SMTP credentials as a secret in the observability plane's secret store. The channel references it by name. You can also create it from **Settings → Secrets** in Backstage, with `ClusterObservabilityPlane` `default` as the target plane.
+
+```bash
+occ secret create generic email-notification-channel-development-smtp-auth \
+  --namespace default \
+  --target-plane ClusterObservabilityPlane/default \
+  --from-literal=username=smtp-username \
+  --from-literal=password=smtp-password
+```
+
+Replace `smtp-username` and `smtp-password` with your SMTP credentials.
+
+Then create the channel:
 
 ```bash
 kubectl apply -f - <<'EOF'
@@ -227,6 +242,7 @@ metadata:
   namespace: default
 spec:
   environment: development
+  isEnvDefault: true
   type: email
   emailConfig:
     from: notifications@openchoreo.dev    # Replace with your SMTP sender email address
@@ -261,17 +277,6 @@ spec:
         Project: ${project}
         Environment: ${environment}
         Enabled AI Root Cause Analysis: ${triggerAiRca}
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: email-notification-channel-development-smtp-auth
-  namespace: default
-type: Opaque
-stringData:
-  username: smtp-username   # Replace with your SMTP username
-  password: smtp-password   # Replace with your SMTP password
 EOF
 ```
 
@@ -279,6 +284,19 @@ EOF
 
 You can integrate OpenChoreo's observability alerts with your existing notification systems (such as Slack, Google Chat, etc.) by using a webhook notification channel.
 For testing purposes, you can obtain a temporary webhook URL from [webhook.site](https://webhook.site/) and configure a webhook notification channel as follows:
+
+If your webhook needs an API key, create it as a secret in the observability plane's secret store first. The channel references it by name in the `X-API-Key` header. If it doesn't, remove the `X-API-Key` header from the channel below.
+
+```bash
+occ secret create generic webhook-notification-channel-development-webhook-auth \
+  --namespace default \
+  --target-plane ClusterObservabilityPlane/default \
+  --from-literal=api-key=webhook-api-key
+```
+
+Replace `webhook-api-key` with your webhook's API key.
+
+Then create the channel:
 
 ```bash
 kubectl apply -f - <<'EOF'
@@ -356,16 +374,6 @@ spec:
           }
         ]
       }
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: webhook-notification-channel-development-webhook-auth
-  namespace: default
-type: Opaque
-stringData:
-  api-key: webhook-api-key    # Replace with your webhook API key (optional)
 EOF
 ```
 
@@ -376,29 +384,33 @@ Note: The payload in the notifications can be customized using CEL expressions. 
 ### Step 3: Deploy the gcp-microservices-demo Sample
 
 This tutorial is based on the gcp-microservices-demo sample.
-Deploy the sample using the following commands if you haven't already:
+Deploy the sample using the following commands if you haven't already.
+The commands run in a subshell with `set -e`, so a failed `occ apply` or a Redis promotion that never succeeds stops the sequence instead of leaving a half-deployed sample:
 
 <CodeBlock language="bash">
 {`
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
+(
+set -e
+
+occ apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
 
 # Provision the Redis cache, then promote the binding to the latest release.
 
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/resources/redis.yaml
-until release=$(kubectl get resource redis -n default -o jsonpath='{.status.latestRelease.name}') && [ -n "$release" ]; do sleep 2; done
-kubectl patch resourcereleasebinding redis-development -n default --type=merge -p "{\\"spec\\":{\\"resourceRelease\\":\\"$release\\"}}"
+occ apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/resources/redis.yaml
+promoted=false
+for attempt in $(seq 1 30); do
+if occ resource promote redis --env development -n default; then promoted=true; break; fi
+sleep 2
+done
+if [ "$promoted" != true ]; then
+echo "ERROR: Redis promotion did not succeed after 30 attempts. Check 'occ resource get redis -n default'." >&2
+exit 1
+fi
 
-kubectl apply \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/ad-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/cart-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/checkout-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/currency-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/email-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/frontend-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/payment-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/productcatalog-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/recommendation-component.yaml \\
--f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/shipping-component.yaml
+for component in ad cart checkout currency email frontend payment productcatalog recommendation shipping; do
+occ apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/${versions.githubRef}/samples/gcp-microservices-demo/components/$component-component.yaml
+done
+)
 `}
 
 </CodeBlock>
@@ -706,6 +718,8 @@ Also you can acknowledge and resolve incidents via the Backstage portal when the
 
 If you have properly configured the [SRE Agent](../ai/sre-agent.mdx), you can verify AI root cause analysis by checking the RCA reports in the Backstage portal when an incident is created.
 
+For a walkthrough dedicated to reading an RCA report and applying the fix it recommends, see [Tutorial - Identify and Fix a Root Cause using the SRE Agent](./identify-and-fix-root-cause-with-sre-agent.mdx).
+
 ## Summary
 
 You attached OpenChoreo **observability alert rules** to existing components (as `observability-alert-rule` traits), configured **email** and **webhook** notification channels per environment, and enabled **incident creation** (plus AI root cause analysis) via `ReleaseBinding` `traitEnvironmentConfigs`.
@@ -715,10 +729,11 @@ Then you triggered the alerts using controlled misconfigurations, and verified a
 ## Next Steps
 
 - Configure and tune the [SRE Agent](../ai/sre-agent.mdx) for your observability/AI requirements.
+- Follow [Tutorial - Identify and Fix a Root Cause using the SRE Agent](./identify-and-fix-root-cause-with-sre-agent.mdx) to trace an alert back to its origin and apply the recommended remediation.
 - Follow [Configure Budget Alert and Perform Cost Analysis using FinOps Agent](./configure-budget-alert-and-cost-analysis.mdx) to set up budget alerts and AI cost analysis.
 - Explore how to view and manage alerts/incidents via the Observer API (Backstage portal and OpenChoreo MCP server).
 - Customize webhook formatting using `payloadTemplate` for downstream systems (for example, Slack-compatible payloads).
-- Refer to [Observability Alerting](../platform-engineer-guide/observability-alerting.mdx) for how alerting architecture works in OpenChoreo.
+- Refer to [Alerting](../platform-engineer-guide/observability/alerting.mdx) for how alerting architecture works in OpenChoreo.
 
 ## Cleanup
 
@@ -727,9 +742,11 @@ Stop the curl loop (Ctrl+C).
 Delete sample resources in reverse order if desired:
 
 ```bash
-kubectl delete project gcp-microservice-demo -n default
+occ project delete gcp-microservice-demo -n default
 
-kubectl delete observabilityalertsnotificationchannel email-notification-channel-development webhook-notification-channel-development -n default
-kubectl delete secret email-notification-channel-development-smtp-auth -n default
-kubectl delete secret webhook-notification-channel-development-webhook-auth -n default
+occ observabilityalertsnotificationchannel delete email-notification-channel-development -n default
+occ observabilityalertsnotificationchannel delete webhook-notification-channel-development -n default
+
+occ secret delete email-notification-channel-development-smtp-auth -n default
+occ secret delete webhook-notification-channel-development-webhook-auth -n default
 ```

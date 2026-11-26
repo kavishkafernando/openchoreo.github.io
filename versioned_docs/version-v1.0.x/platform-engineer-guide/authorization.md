@@ -458,6 +458,7 @@ Minimal access for publishing workloads from CI workflows. Used by the workload 
   actions:
     - "workload:create"
     - "workload:update"
+    - "workload:view"
     - "workflowrun:view"
     - "workflowrun:update"
 ```

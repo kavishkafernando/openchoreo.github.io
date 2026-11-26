@@ -1,12 +1,18 @@
 import type { ReactNode } from "react";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import clsx from "clsx";
 import { useBaseUrlUtils } from "@docusaurus/useBaseUrl";
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import SectionHeader from "@site/src/components/common/SectionHeader";
 import styles from "./styles.module.css";
 import BrowserShell from "../common/BrowserShell";
 import TerminalShell from "../common/TerminalShell";
 import ExpandableImage from "../common/ExpandableImage";
+import {
+  ToolchainOrbit,
+  toolchainCardClassName,
+  toolchainMediaClassName,
+} from "../IntegrateToolchain";
 
 type FeatureTone = "ocean" | "teal" | "amber" | "coral" | "violet" | "slate";
 type FeatureLayout = "feature" | "compact" | "standard" | "wide" | "half";
@@ -42,6 +48,53 @@ type Feature = {
   compactHighlightGrid?: boolean;
 };
 
+// Widths of the WebP copies that docusaurus-plugin-homepage-images generates
+// for the raster screenshots in /img/homepage/. Keep in sync with WIDTHS there.
+const RESPONSIVE_WIDTHS = [800, 1600];
+// The feature previews are at most about 800px wide on desktop.
+const RESPONSIVE_SIZES = "(max-width: 996px) 100vw, 800px";
+
+// srcset for a homepage screenshot, or undefined for anything else (SVGs,
+// other folders). The WebP copies only exist in a production build.
+function responsiveSrcSet(
+  image: string | undefined,
+  withBaseUrl: (url: string) => string,
+): string | undefined {
+  if (
+    process.env.NODE_ENV !== "production" ||
+    !image?.startsWith("/img/homepage/") ||
+    !/\.(png|jpe?g)$/i.test(image)
+  ) {
+    return undefined;
+  }
+  const src = withBaseUrl(image);
+  return RESPONSIVE_WIDTHS.map((width) => `${src}.w${width}.webp ${width}w`).join(
+    ", ",
+  );
+}
+
+// The points under the one-sentence definition in the section header. The
+// "What is OpenChoreo" docs page (docs/ and versioned_docs/) repeats them as a
+// Markdown list; keep the wording in sync.
+const definitionPoints = [
+  {
+    label: "Batteries included, but swappable",
+    text: "CI/CD, GitOps, observability, identity, audit logs, delivery and cost insights and more, replaceable with the tools you already use.",
+  },
+  {
+    label: "One control plane, many interfaces",
+    text: "A consistent experience across a Backstage developer portal, CLI, API and MCP servers, all with access controls.",
+  },
+  {
+    label: "Developer abstractions and platform building blocks",
+    text: "Kubernetes without the cognitive load for developers, and building blocks for platform engineers to shape their own golden paths.",
+  },
+  {
+    label: "Built for humans and agents from the ground up",
+    text: "AI agents that work within the same guardrails as your team, and built-in platform agents for day-to-day operations.",
+  },
+];
+
 const features: Feature[] = [
   {
     title: "Modular multi-plane architecture",
@@ -57,7 +110,7 @@ const features: Feature[] = [
     expandableImage: true,
     plainMedia: true,
     docLink: "/docs/overview/architecture",
-    docLabel: "View Architecture Docs",
+    docLabel: "View architecture docs",
   },
   {
     title: "Built-in AI agents",
@@ -66,7 +119,7 @@ const features: Feature[] = [
     eyebrow: "Embedded automation",
     highlights: [
       "Root cause analysis with the SRE agent",
-      "Cost optimization based on budget alerts with the FinOps Agent",
+      "Cost optimization based on budget alerts with the FinOps agent",
     ],
     tone: "violet",
     layout: "half",
@@ -84,10 +137,10 @@ const features: Feature[] = [
         fullBleedMedia: true,
       },
       {
-        label: "Cost optimization based on budget alerts with the FinOps Agent",
+        label: "Cost optimization based on budget alerts with the FinOps agent",
         image: "/img/homepage/finops-agent.png",
         imageAlt:
-          "FinOps Agent view showing cost optimization based on budget alerts",
+          "FinOps agent view showing cost optimization based on budget alerts",
         aspectRatio: "3368 / 1988",
         expandableImage: true,
         fullBleedMedia: true,
@@ -99,7 +152,7 @@ const features: Feature[] = [
     description:
       "Secure MCP servers and skills allow AI to assist in delivery and operations without bypassing platform guardrails.",
     eyebrow: "Agent interfaces",
-    highlights: ["AI for Platform Engineers", "AI for Developers"],
+    highlights: ["AI for platform engineers", "AI for developers"],
     tone: "slate",
     layout: "half",
     imageAlt:
@@ -109,7 +162,7 @@ const features: Feature[] = [
     fullBleedMedia: true,
     mediaVariants: [
       {
-        label: "AI for Platform Engineers",
+        label: "AI for platform engineers",
         image: "/img/homepage/ai-for-platform-engineers.jpg",
         imageAlt:
           "Platform view exposing deeper operational capabilities and interfaces used by MCP and skills",
@@ -118,7 +171,7 @@ const features: Feature[] = [
         fullBleedMedia: true,
       },
       {
-        label: "AI for Developers",
+        label: "AI for developers",
         image: "/img/homepage/ai-for-developers.jpg",
         imageAlt:
           "Self-service actions view showing guardrailed AI-assisted platform operations",
@@ -132,7 +185,7 @@ const features: Feature[] = [
     title: "Platform building blocks",
     description:
       "Declarative APIs standardize environments, component types, gateways, pipelines, and workflows across teams.",
-    eyebrow: "Platform Topology",
+    eyebrow: "Platform topology",
     highlights: [
       "Visualize platform architecture",
       "Define your platform topology",
@@ -141,9 +194,6 @@ const features: Feature[] = [
     ],
     tone: "amber",
     layout: "half",
-    image: "/img/homepage/platform-graph.png",
-    imageAlt:
-      "Platform overview graph showing OpenChoreo platform abstractions",
     aspectRatio: "1999 / 1206",
     expandableImage: true,
     fullBleedMedia: true,
@@ -205,7 +255,7 @@ const features: Feature[] = [
     expandableImage: true,
     fullBleedMedia: true,
     docLink: "/explore/backstage-powered-developer-portal/",
-    docLabel: "Explore the Developer Portal",
+    docLabel: "Explore the developer portal",
     mediaVariants: [
       {
         label: "Visualize app architecture",
@@ -277,7 +327,7 @@ const features: Feature[] = [
     tone: "coral",
     layout: "wide",
     docLink: "/explore/observability",
-    docLabel: "Explore Observability",
+    docLabel: "Explore observability",
     image:
       "/img/explore/backstage-powered-developer-portal/built-in-observability.png",
     imageAlt:
@@ -337,7 +387,7 @@ const features: Feature[] = [
     layout: "standard",
     hideHighlights: true,
     docLink: "/docs/platform-engineer-guide/gitops/overview",
-    docLabel: "View GitOps Docs",
+    docLabel: "View GitOps docs",
   },
   {
     title: "Multi-tenancy and access control",
@@ -349,7 +399,7 @@ const features: Feature[] = [
     layout: "standard",
     hideHighlights: true,
     docLink: "/docs/platform-engineer-guide/authorization/overview",
-    docLabel: "View Access Control Docs",
+    docLabel: "View access control docs",
   },
 ];
 
@@ -366,6 +416,11 @@ function FeatureVisual({
     : feature.image
       ? withBaseUrl(feature.image)
       : undefined;
+  const imageSrcSet = responsiveSrcSet(
+    media?.image ?? feature.image,
+    withBaseUrl,
+  );
+  const imageSizes = imageSrcSet ? RESPONSIVE_SIZES : undefined;
   const imageAlt = media?.imageAlt || feature.imageAlt || feature.title;
   const aspectRatio = media?.aspectRatio ?? feature.aspectRatio;
   const expandableImage = media?.expandableImage ?? feature.expandableImage;
@@ -427,7 +482,10 @@ function FeatureVisual({
           {expandableImage ? (
             <ExpandableImage
               src={imageSrc}
+              srcSet={imageSrcSet}
+              sizes={imageSizes}
               alt={imageAlt}
+              loading="lazy"
               className={clsx(styles.expandableMedia, styles.plainMedia)}
               fillContainer
               gutterBottom={false}
@@ -435,6 +493,8 @@ function FeatureVisual({
           ) : (
             <img
               src={imageSrc}
+              srcSet={imageSrcSet}
+              sizes={imageSizes}
               alt={imageAlt}
               className={clsx(styles.mediaImage, styles.plainMedia)}
               loading="lazy"
@@ -464,7 +524,10 @@ function FeatureVisual({
           {expandableImage ? (
             <ExpandableImage
               src={imageSrc}
+              srcSet={imageSrcSet}
+              sizes={imageSizes}
               alt={imageAlt}
+              loading="lazy"
               className={styles.expandableMedia}
               fillContainer
               fullBleed={fullBleedMedia}
@@ -474,6 +537,8 @@ function FeatureVisual({
           ) : (
             <img
               src={imageSrc}
+              srcSet={imageSrcSet}
+              sizes={imageSizes}
               alt={imageAlt}
               className={clsx(
                 styles.mediaImage,
@@ -528,31 +593,16 @@ function FeatureCard({ feature }: { feature: Feature }) {
   const isMinimalCard = !hasMedia && feature.hideHighlights;
   const docHref = feature.docLink ? withBaseUrl(feature.docLink) : undefined;
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const sources = new Set<string>();
-
-    if (feature.image) {
-      sources.add(feature.image);
-    }
-
-    mediaVariants?.forEach((variant) => {
-      if (variant.image) {
-        sources.add(variant.image);
-      }
-    });
-
-    sources.forEach((src) => {
-      const img = new window.Image();
-      img.src = withBaseUrl(src);
-    });
-  }, [feature.image, mediaVariants, withBaseUrl]);
+  // Every tab's preview is stacked in the card so switching tabs can cross-fade.
+  // Only the active tab's image is rendered at first; the others are added once
+  // the visitor points at or focuses the card, so they are loaded by the time a
+  // tab is clicked without downloading every screenshot on page load.
+  const [renderAllVariants, setRenderAllVariants] = useState(false);
 
   return (
     <article
+      onPointerEnter={() => setRenderAllVariants(true)}
+      onFocus={() => setRenderAllVariants(true)}
       className={clsx(
         styles.featureCard,
         isMinimalCard && styles.featureCardMinimal,
@@ -625,7 +675,10 @@ function FeatureCard({ feature }: { feature: Feature }) {
                   )}
                   aria-hidden={activeVariant?.label !== variant.label}
                 >
-                  <FeatureVisual feature={feature} media={variant} />
+                  {(renderAllVariants ||
+                    activeVariant?.label === variant.label) && (
+                    <FeatureVisual feature={feature} media={variant} />
+                  )}
                 </div>
               ))}
             </div>
@@ -638,11 +691,50 @@ function FeatureCard({ feature }: { feature: Feature }) {
   );
 }
 
+function IntegrationsCard() {
+  const { withBaseUrl } = useBaseUrlUtils();
+
+  return (
+    <article
+      className={clsx(
+        styles.featureCard,
+        styles.featureCardWithMedia,
+        styles.toneViolet,
+        styles.layoutWide,
+        toolchainCardClassName,
+      )}
+    >
+      <div className={styles.featureContent}>
+        <h3 className={styles.featureTitle}>Integrate your toolchain</h3>
+        <p className={styles.featureDescription}>
+          OpenChoreo’s modular architecture lets you integrate, extend, and
+          standardize platform capabilities without abandoning your existing
+          tools.
+        </p>
+        <div className={styles.linkRow}>
+          <a
+            href={withBaseUrl("/ecosystem/")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.learnMoreLink}
+          >
+            Explore the OpenChoreo Ecosystem
+          </a>
+        </div>
+      </div>
+      <div className={toolchainMediaClassName}>
+        <ToolchainOrbit />
+      </div>
+    </article>
+  );
+}
+
 /**
  * WhatIsOpenChoreo Component
  * This section explains what OpenChoreo is and highlights the core platform capabilities
  */
 export default function WhatIsOpenChoreo(): ReactNode {
+  const { siteConfig } = useDocusaurusContext();
   const primaryFeatures = features.filter(
     (feature) => feature.layout !== "standard",
   );
@@ -651,22 +743,27 @@ export default function WhatIsOpenChoreo(): ReactNode {
   );
 
   return (
-    <section className={styles.section}>
+    <section className={styles.section} data-section-bg="white">
       <div className="container">
         <SectionHeader title="What is OpenChoreo?">
-          <p>
-            OpenChoreo is a developer platform for Kubernetes that lets
-            developers and AI agents build, deploy, and operate apps, resources,
-            and agentic workloads. It provides development and platform
-            abstractions, a Backstage-powered developer portal, CI/CD, GitOps,
-            and observability.
+          <p className={styles.definition}>
+            {siteConfig.customFields.definition as string}
           </p>
+          <ul className={styles.definitionList}>
+            {definitionPoints.map((point) => (
+              <li key={point.label} className={styles.definitionPoint}>
+                <strong>{point.label}:</strong>{" "}
+                {point.text}
+              </li>
+            ))}
+          </ul>
         </SectionHeader>
 
         <div className={styles.featuresGrid}>
           {primaryFeatures.map((feature) => (
             <FeatureCard key={feature.title} feature={feature} />
           ))}
+          <IntegrationsCard />
         </div>
 
         <div className={styles.supportingSection}>

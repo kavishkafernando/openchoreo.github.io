@@ -31,13 +31,16 @@ metadata:
 
 ### Spec Fields
 
-| Field                | Type                                                  | Required | Default | Description                                                                        |
-| -------------------- | ----------------------------------------------------- | -------- | ------- | ---------------------------------------------------------------------------------- |
-| `parameters`         | [SchemaSection](#schemasection)                       | No       | -       | Developer-facing configurable parameters for this trait                            |
-| `environmentConfigs` | [SchemaSection](#schemasection)                       | No       | -       | Parameters that can be overridden per environment                                  |
-| `validations`        | [[ValidationRule](./componenttype.md#validationrule)] | No       | []      | CEL-based rules evaluated during rendering; all must pass for rendering to proceed |
-| `creates`            | [[TraitCreate](#traitcreate)]                         | No       | []      | New Kubernetes resources to create                                                 |
-| `patches`            | [[TraitPatch](#traitpatch)]                           | No       | []      | Modifications to existing ComponentType resources                                  |
+| Field                   | Type                                                              | Required | Default | Description                                                                                        |
+| ----------------------- | ----------------------------------------------------------------- | -------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `parameters`            | [SchemaSection](#schemasection)                                   | No       | -       | Developer-facing configurable parameters for this trait                                            |
+| `environmentConfigs`    | [SchemaSection](#schemasection)                                   | No       | -       | Parameters that can be overridden per environment                                                  |
+| `validations`           | [[ValidationRule](./componenttype.md#validationrule)]             | No       | []      | Deprecated alias for `preRenderValidations` (identical semantics); set only one of the two         |
+| `preRenderValidations`  | [[ValidationRule](./componenttype.md#validationrule)]             | No       | []      | CEL-based rules evaluated before rendering against the trait's static context                      |
+| `postRenderValidations` | [[PostRenderValidation](./componenttype.md#postrendervalidation)] | No       | []      | CEL-based rules evaluated after all traits are applied, against the final rendered resources       |
+| `creates`               | [[TraitCreate](#traitcreate)]                                     | No       | []      | New Kubernetes resources to create                                                                 |
+| `patches`               | [[TraitPatch](#traitpatch)]                                       | No       | []      | Modifications to existing ComponentType resources                                                  |
+| `removes`               | [[TraitRemove](#traitremove)]                                     | No       | []      | Whole resources produced by the ComponentType or earlier traits to delete from the rendered output |
 
 ### SchemaSection
 
@@ -86,28 +89,32 @@ Defines a new Kubernetes resource to be created when the trait is applied.
 | `var`         | string | No       | -           | Variable name for `forEach` iterations (required if `forEach` is set) |
 | `template`    | object | Yes      | -           | Kubernetes resource template with CEL expressions                     |
 
+With referenced-config rollout enabled, the `openchoreo.dev/restart-on-change` annotation in a template's `metadata.annotations` decides whether a change to the rendered resource restarts the component's pods. See [Pod Rollouts](../../../platform-engineer-guide/component-types/pod-rollouts.mdx).
+
 CEL expressions in trait templates have access to the following context variables:
 
 ##### metadata
 
 Platform-computed metadata for resource generation (same as ComponentType):
 
-| Field                         | Type   | Description                                                         |
-| ----------------------------- | ------ | ------------------------------------------------------------------- |
-| `metadata.name`               | string | Base name for generated resources (e.g., `my-service-dev-a1b2c3d4`) |
-| `metadata.namespace`          | string | Target namespace for resources                                      |
-| `metadata.componentNamespace` | string | Target namespace of the component                                   |
-| `metadata.componentName`      | string | Name of the component                                               |
-| `metadata.componentUID`       | string | Unique identifier of the component                                  |
-| `metadata.projectName`        | string | Name of the project                                                 |
-| `metadata.projectUID`         | string | Unique identifier of the project                                    |
-| `metadata.environmentName`    | string | Name of the environment (e.g., `development`, `production`)         |
-| `metadata.environmentUID`     | string | Unique identifier of the environment                                |
-| `metadata.dataPlaneName`      | string | Name of the data plane                                              |
-| `metadata.dataPlaneUID`       | string | Unique identifier of the data plane                                 |
-| `metadata.labels`             | map    | Common labels to add to all resources                               |
-| `metadata.annotations`        | map    | Common annotations to add to all resources                          |
-| `metadata.podSelectors`       | map    | Platform-injected selectors for pod identity                        |
+| Field                         | Type   | Description                                                                                                                              |
+| ----------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata.name`               | string | Base name for generated resources (e.g., `my-service-dev-a1b2c3d4`)                                                                      |
+| `metadata.namespace`          | string | Target namespace for resources                                                                                                           |
+| `metadata.componentNamespace` | string | Target namespace of the component                                                                                                        |
+| `metadata.componentName`      | string | Name of the component                                                                                                                    |
+| `metadata.releaseLineName`    | string | Release line being rendered (e.g., `next`). Empty for the component's main line                                                          |
+| `metadata.componentLineName`  | string | Name for the component-level objects of the line being rendered (e.g., `my-service-next-a1b2c3d4`). The component name for the main line |
+| `metadata.componentUID`       | string | Unique identifier of the component                                                                                                       |
+| `metadata.projectName`        | string | Name of the project                                                                                                                      |
+| `metadata.projectUID`         | string | Unique identifier of the project                                                                                                         |
+| `metadata.environmentName`    | string | Name of the environment (e.g., `development`, `production`)                                                                              |
+| `metadata.environmentUID`     | string | Unique identifier of the environment                                                                                                     |
+| `metadata.dataPlaneName`      | string | Name of the data plane                                                                                                                   |
+| `metadata.dataPlaneUID`       | string | Unique identifier of the data plane                                                                                                      |
+| `metadata.labels`             | map    | Common labels to add to all resources                                                                                                    |
+| `metadata.annotations`        | map    | Common annotations to add to all resources                                                                                               |
+| `metadata.podSelectors`       | map    | Platform-injected selectors for pod identity                                                                                             |
 
 ##### trait
 
@@ -156,6 +163,30 @@ Defines modifications to existing resources generated by the ComponentType.
 | `target`      | [PatchTarget](#patchtarget)                 | Yes      | -           | Specifies which resource to patch                                |
 | `targetPlane` | string                                      | No       | `dataplane` | Target plane: `dataplane` or `observabilityplane`                |
 | `operations`  | [[JSONPatchOperation](#jsonpatchoperation)] | Yes      | -           | List of JSONPatch operations to apply                            |
+
+### TraitRemove
+
+Deletes whole resources produced by the ComponentType or earlier traits from the rendered output. Within a single
+trait, removes run after its `creates` and `patches`. The primary workload cannot be removed: the admission webhook
+rejects removes targeting `Deployment`, `StatefulSet`, `DaemonSet`, `CronJob`, or `Job` in the `apps`/`batch` groups.
+
+| Field         | Type                        | Required | Default     | Description                                                                                                   |
+| ------------- | --------------------------- | -------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
+| `forEach`     | string                      | No       | -           | CEL expression for iterating over a list                                                                      |
+| `var`         | string                      | No       | -           | Variable name for `forEach` iterations (required if forEach set)                                              |
+| `target`      | [PatchTarget](#patchtarget) | Yes      | -           | Resources to remove, selected by GVK with an optional `where` filter; matching resources are deleted entirely |
+| `targetPlane` | string                      | No       | `dataplane` | Target plane: `dataplane` or `observabilityplane`                                                             |
+
+**Example:**
+
+```yaml
+removes:
+  - target:
+      group: ""
+      version: v1
+      kind: ConfigMap
+      where: ${resource.metadata.name.endsWith("-debug")}
+```
 
 ### PatchTarget
 

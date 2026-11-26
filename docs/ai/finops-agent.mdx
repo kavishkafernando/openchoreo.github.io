@@ -16,7 +16,7 @@ Before enabling the FinOps Agent, ensure the following:
 
 - OpenChoreo Observability Plane installed with at least a metrics module.
 - An LLM API key from [OpenAI](https://platform.openai.com/) (support for other providers coming soon)
-- [Metrics collection configured](../platform-engineer-guide/observability-alerting.mdx) for your components.
+- [Metrics collection configured](../platform-engineer-guide/observability/metrics.mdx) for your components.
 
 ## Enabling the FinOps Agent
 
@@ -82,7 +82,7 @@ Enable the FinOps Agent and configure the LLM model. The `--reuse-values` flag p
 </CodeBlock>
 
 :::note Supported Models
-The FinOps Agent currently supports the [OpenAI](https://platform.openai.com/) GPT model series (e.g., `gpt-5.4`, `gpt-5.2-pro`, `gpt-5` etc.). Support for additional model providers is coming soon.
+The FinOps Agent currently supports the [OpenAI](https://platform.openai.com/) GPT model series (e.g., `gpt-6-astra`, `gpt-5.6`, `gpt-5.4`, `gpt-5` etc.). Support for additional model providers is coming soon.
 :::
 
 If the observability plane and control plane are in separate clusters, also set `finOpsAgent.openchoreoApiUrl` to the control plane API URL (defaults to `http://api.openchoreo.localhost:8080`).
@@ -139,7 +139,7 @@ See [Identity Provider Configuration](../platform-engineer-guide/identity-config
 
 #### Authorization
 
-The FinOps Agent uses the `client_credentials` grant to authenticate with the OpenChoreo API as a service account. The API matches the `sub` claim in the issued JWT to identify the caller, so the new client must be granted the `finops-agent` role via a bootstrap authorization mapping.
+The FinOps Agent uses the `client_credentials` grant to authenticate with the OpenChoreo API as a service account. The API matches the `client_id` claim in the issued JWT to identify the caller, so the new client must be granted the `finops-agent` role via a bootstrap authorization mapping.
 
 Add the following to your Control Plane values override, replacing `<your-client-id>` with the same client ID used above:
 
@@ -154,7 +154,7 @@ openchoreoApi:
               roleRef:
                 name: finops-agent
               entitlement:
-                claim: sub
+                claim: client_id
                 value: "<your-client-id>"
               effect: allow
 ```

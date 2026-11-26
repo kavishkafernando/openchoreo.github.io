@@ -409,6 +409,146 @@ occ version
 
 ---
 
+## Dependency Tunnelling
+
+### remote
+
+Tunnel one or more workloads' dependencies to your machine for local development. Resolves each workload's declared endpoint and resource dependencies for an environment, opens a local TCP listener for each one, and starts a subshell whose environment points at those listeners. See [Local Development](../developer-guide/local-development.md).
+
+**Usage:**
+
+```bash
+occ remote <workload.yaml> [<workload.yaml>...] [flags]
+```
+
+**Flags:**
+
+- `--env` - Target environment to resolve dependencies for (required)
+- `-n, --namespace` - Namespace of the consuming component. Falls back to each workload file's `metadata.namespace`
+- `--print-env` - Print the resolved env bindings and hold the tunnels open instead of spawning a subshell. Values read from the data plane are redacted, and on an interactive terminal `occ` asks once whether to print them in full
+- `--show-secrets` - With `--print-env`, print those values in full with no prompt. Required to get real values out of a non-interactive `--print-env`, since a pipe cannot answer the prompt. Mutually exclusive with `--no-secrets`
+- `--no-secrets` - Do not fetch Secret- or ConfigMap-backed dependency values. They are reported as unresolved instead, so no credential enters the local process
+- `--local` - Wire a cross-linked dependency's provider component to a local `host:port` instead of tunnelling it (`component=host:port`, or `component@line=host:port` for a [release line](../developer-guide/deploying-applications/release-lines.md), repeatable)
+
+**Examples:**
+
+```bash
+# Tunnel a workload's dependencies and drop into a subshell
+occ remote my-service/workload.yaml --namespace default --env development
+
+# Print bindings for use with direnv or an IDE run config, without a subshell
+occ remote my-service/workload.yaml --env development --print-env
+
+# Same, but print fetched Secret/ConfigMap values in full with no prompt
+occ remote my-service/workload.yaml --env development --print-env --show-secrets
+
+# Run two components locally, wiring one's dependency to the other's local port
+occ remote comp1/workload.yaml comp2/workload.yaml \
+  --local comp2=127.0.0.1:9091 --env development
+```
+
+:::note
+`occ remote` requires the remote-connect feature to be enabled on the control plane and a remote-agent router on each data plane. See [Enabling Local Development](../platform-engineer-guide/local-development-setup.mdx).
+
+Your role must grant `component:connect` for each endpoint dependency and `resource:connect` for each resource dependency, plus `resource:read-secrets` to resolve Secret-backed values.
+:::
+
+---
+
+## Auditing
+
+### auditlogs
+
+Query the audit trail: who did what, from where, and whether it was allowed. The Observer that serves the trail is discovered from the control plane, so there is no plane to name. See [Audit Logging](../platform-engineer-guide/observability/audit-logging.mdx).
+
+**Usage:**
+
+```bash
+occ auditlogs [flags]
+```
+
+**Aliases:** `audit-logs`, `auditlog`
+
+Multi-value flags take comma-separated values. Values within one flag are OR-ed, and different flags must all match.
+
+**Flags:**
+
+_Time window and output_
+
+- `--since` - Only return records newer than a relative duration like `30m`, `24h` or `7d` (default `24h`). Mutually exclusive with `--start`
+- `--start` - Inclusive start of the window, in RFC 3339 (e.g. `2026-08-01T00:00:00Z`)
+- `--end` - Exclusive end of the window, in RFC 3339 (default now)
+- `--limit` - Maximum number of records to return, `1`-`1000` (default `100`)
+- `--sort` - Order by event time: `desc` or `asc` (default `desc`)
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=event_time,result` (default `text`)
+- `--search` - Only return records containing this text
+
+_Actor_
+
+- `--actor` - Actor IDs, the token claim set by `audit.actor.idClaim` (`sub` by default)
+- `--actor-type` - Kinds of subject, e.g. `user`, `service_account`, `anonymous`
+- `--issuer` - Token issuers. Pair with `--actor` where more than one identity provider is configured
+- `--session-id` - Identity provider session IDs, joining the actions of one login
+- `--entitlement` - Entitlement values such as group names
+
+_Operation_
+
+- `--action` - Semantic action names, e.g. `create_project`
+- `--category` - Event categories: `management`, `authorization`, `access`
+- `--result` - Outcomes: `success`, `failure`, `denied`
+- `--surface` - API surfaces the call arrived through: `rest`, `mcp`
+- `--producer` - Emitting services, e.g. `openchoreo-api`
+- `--operation-id` - Canonical operation identifiers, e.g. `CreateProject`
+- `--request-id` - Request correlation IDs
+- `--event-id` - Audit record IDs
+- `--source-ip` - Client addresses, matched exactly
+- `--user-agent` - Client identifications, matched exactly. `--search` suits partial matches
+
+_Target resource_
+
+- `--resource-type` - Kinds of the target resource, e.g. `project`
+- `--resource-name` - Names of the target resource
+- `-n, --namespace` - OpenChoreo namespaces
+- `-p, --project` - Projects
+- `-c, --component` - Components
+- `--release-line` - [Release lines](../developer-guide/deploying-applications/release-lines.md) of the components
+- `--resource` - Resources, the hierarchy level beside components
+- `--env` - Environments as `<namespace>/<name>`. A bare name is qualified with `--namespace` when exactly one is given
+
+A window may span at most 366 days. When it holds more records than `--limit`, the command says so on stderr and prints the `--start`/`--end` that fetch the next page.
+
+**Examples:**
+
+```bash
+# Everything in the last 24 hours
+occ auditlogs
+
+# Denied requests in the last 7 days
+occ auditlogs --since 7d --result denied
+
+# What one user changed in a namespace, as JSON
+occ auditlogs --actor alice@example.com --namespace acme-corp --category management -o json
+
+# Activity in one environment over an absolute window
+occ auditlogs --env acme-corp/production --start 2026-08-01T00:00:00Z --end 2026-09-01T00:00:00Z
+
+# Changes to one release line of a component
+occ auditlogs --component hello --release-line next
+
+# The audit record for a request seen in an access log
+occ auditlogs --since 30d --request-id 4f8c2e1a-...
+
+# Select audit JSON fields
+# Use . to select nested fields such as actor.id
+occ auditlogs -o custom-columns=event_time,result,actor.id
+```
+
+:::note
+Reading the trail requires the cluster-scoped `auditlogs:view` permission. The `--namespace`, `--project`, `--component`, `--resource` and `--env` filters narrow the result; they do not widen what you are authorized to read.
+:::
+
+---
+
 ## Resource Management
 
 ### apply
@@ -434,6 +574,8 @@ occ apply -f namespace.yaml
 # Apply a component configuration
 occ apply -f my-component.yaml
 ```
+
+A ReleaseLine is sent to the component named in its `spec.owner`, and is created or updated as a whole.
 
 ---
 
@@ -914,6 +1056,52 @@ occ clusterobservabilityplane delete [CLUSTER_OBSERVABILITY_PLANE_NAME]
 occ clusterobservabilityplane delete default
 ```
 
+#### clusterobservabilityplane logs
+
+Query [platform logs](../platform-engineer-guide/observability/platform-logs.mdx) collected by a cluster observability plane: OpenChoreo's own components, the third-party infrastructure deployed alongside them, and the workloads running on the planes it watches. Entries are returned with no ownership check, so the command requires the cluster-scoped `platformlogs:view` permission.
+
+**Usage:**
+
+```bash
+occ clusterobservabilityplane logs [CLUSTER_OBSERVABILITY_PLANE_NAME] [flags]
+```
+
+**Flags:**
+
+- `--cluster` - Clusters the entries were collected from, as named on each cluster's logs collector (comma-separated)
+- `--pod-namespace` - Kubernetes namespaces of the pods, e.g. `openchoreo-control-plane` (comma-separated)
+- `--pod` - Pod names (comma-separated)
+- `--container` - Container names within the pods (comma-separated)
+- `-l, --selector` - Label selector over the pod labels, e.g. `openchoreo.dev/plane=controlplane`. Commas mean AND; equality-based selectors only
+- `--level` - Log levels to include: `DEBUG`, `INFO`, `WARN`, `ERROR` (comma-separated)
+- `--search` - Only return entries whose message contains this text
+- `--since` - Only return logs newer than a relative duration (e.g., 5m, 1h, 24h). Default: 1h, maximum 30 days
+- `--tail` - Number of lines to show from the end of the window
+- `-f, --follow` - Follow the logs in real-time
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=timestamp,log` (default `text`)
+
+**Examples:**
+
+```bash
+# Control plane components over the last 10 minutes
+occ clusterobservabilityplane logs default --selector openchoreo.dev/plane=controlplane --since 10m
+
+# A single container, followed
+occ cop logs default --pod-namespace openchoreo-control-plane --container manager -f
+
+# Errors from two clusters, as JSON
+occ cop logs default --cluster cluster-a,cluster-b --level ERROR -o json
+
+# One data plane instance
+occ cop logs default -l openchoreo.dev/plane=dataplane,openchoreo.dev/plane-id=eu-1
+
+# Print selected platform log attributes
+occ clusterobservabilityplane logs default -o custom-columns=timestamp,level,podName,log
+
+# Escape a literal period with \. and quote the argument so the shell keeps the backslash
+occ clusterobservabilityplane logs default -o "custom-columns=labels.openchoreo\.dev/plane,log"
+```
+
 ---
 
 ### clustertrait
@@ -1086,6 +1274,7 @@ occ clusterworkflow logs CLUSTER_WORKFLOW_NAME [flags]
 - `-f, --follow` - Follow the logs in real-time
 - `--since` - Only return logs newer than a relative duration (e.g., 5m, 1h, 24h)
 - `--workflowrun` - Workflow run name (defaults to latest run)
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=timestamp,log` (default `text`)
 
 **Examples:**
 
@@ -1098,6 +1287,12 @@ occ clusterworkflow logs dockerfile-builder --namespace acme-corp -f
 
 # Get logs for a specific workflow run
 occ clusterworkflow logs dockerfile-builder --namespace acme-corp --workflowrun build-run-1
+
+# Print each entry as JSON
+occ clusterworkflow logs dockerfile-builder --namespace acme-corp -o json
+
+# Print selected workflow log attributes
+occ clusterworkflow logs dockerfile-builder --namespace acme-corp -o custom-columns=timestamp,log
 ```
 
 ---
@@ -1305,8 +1500,9 @@ occ component deploy [COMPONENT_NAME] [flags]
 
 - `-n, --namespace` - Namespace name
 - `-p, --project` - Project name
-- `--release` - Specific component release to deploy
+- `--release` - Component release to deploy. With `--to`, binds this release instead of promoting the source environment's release
 - `--to` - Target environment to promote to
+- `--release-line` - Release line of the component. Defaults to its main line
 - `--set` - Override values (can be used multiple times)
 - `-o, --output` - Output format
 
@@ -1324,6 +1520,12 @@ occ component deploy api-service --to staging
 
 # Deploy with overrides
 occ component deploy api-service --set spec.componentTypeEnvironmentConfigs.replicas=3
+
+# Promote a release line of the component
+occ component deploy api-service --release-line next --to staging
+
+# Roll a release line back in staging to an earlier release that it runs in the previous environment
+occ component deploy api-service --release-line next --to staging --release api-service-next-89391e40-7978978bc9
 ```
 
 #### component logs
@@ -1341,9 +1543,13 @@ occ component logs COMPONENT_NAME [flags]
 - `-n, --namespace` - Namespace name
 - `-p, --project` - Project name
 - `--env` - Environment where the component is deployed (e.g., dev, staging, production). If not specified, uses the lowest environment from the deployment pipeline
+- `--container` - Container name to fetch logs from. Defaults to all containers
 - `-f, --follow` - Follow the logs in real-time (streams new logs as they appear)
 - `--since` - Only return logs newer than a relative duration (e.g., 5m, 1h, 24h). Default: 1h
 - `--tail` - Number of lines to show from the end of logs (0 means no limit)
+- `--release-line` - Release line of the component, or `main` for its main line. Without it, the main line's logs are shown
+- `--all-release-lines` - Show the logs of every line of the component. Can't be combined with `--release-line`
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=timestamp,log` (default `text`)
 
 **Examples:**
 
@@ -1365,6 +1571,22 @@ occ component logs my-app --env dev -f --since 5m
 
 # Get the last 100 lines of logs
 occ component logs my-app --env dev --tail 100
+
+# Get logs of one release line of a component
+occ component logs my-app --release-line next
+
+# Get logs of every line of a component
+occ component logs my-app --all-release-lines
+
+# Print each log entry as JSON, including metadata
+occ component logs my-app -o json
+
+# Print selected fields
+# Use . to select nested fields such as metadata.podName
+occ component logs my-app -o custom-columns=timestamp,level,metadata.podName,log
+
+# Print logs from all release lines with the release line name
+occ component logs my-app --all-release-lines -o custom-columns=timestamp,metadata.releaseLineName,log
 ```
 
 #### component workflow
@@ -1385,7 +1607,8 @@ occ component workflow run [COMPONENT_NAME] [flags]
 
 - `-n, --namespace` - Namespace name
 - `-p, --project` - Project name
-- `--set` - Build parameters (can be used multiple times)
+- `--set` - Build parameters (can be used multiple times). Cannot be combined with a `--release-line` other than `main`
+- `--release-line` - Release line to build. Defaults to the component's main line. The line's `workflow.parameters` are merged onto the component's workflow parameters
 
 **Examples:**
 
@@ -1395,6 +1618,9 @@ occ component workflow run api-service --namespace acme-corp --project online-st
 
 # Run with parameters
 occ component workflow run api-service --set spec.workflow.parameters.source.org=openchoreo
+
+# Run the workflow for a release line of a component
+occ component workflow run api-service --release-line next --namespace acme-corp
 ```
 
 ##### component workflow logs
@@ -1413,6 +1639,7 @@ occ component workflow logs [COMPONENT_NAME] [flags]
 - `-f, --follow` - Follow the logs in real-time
 - `--since` - Only return logs newer than a relative duration (e.g., 5m, 1h, 24h)
 - `--workflowrun` - Workflow run name (defaults to latest run)
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=timestamp,log` (default `text`)
 
 **Examples:**
 
@@ -1422,6 +1649,12 @@ occ component workflow logs api-service --namespace acme-corp
 
 # Follow workflow logs
 occ component workflow logs api-service -f
+
+# Print each entry as JSON
+occ component workflow logs api-service --namespace acme-corp -o json
+
+# Print selected workflow log attributes
+occ component workflow logs api-service --namespace acme-corp -o custom-columns=timestamp,log
 ```
 
 #### component workflowrun
@@ -1465,6 +1698,7 @@ occ component workflowrun logs [COMPONENT_NAME] [flags]
 - `-f, --follow` - Follow the logs in real-time
 - `--since` - Only return logs newer than a relative duration (e.g., 5m, 1h, 24h)
 - `--workflowrun` - Workflow run name (defaults to latest run)
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=timestamp,log` (default `text`)
 
 **Examples:**
 
@@ -1477,6 +1711,82 @@ occ component workflowrun logs api-service --workflowrun api-service-build-abc12
 
 # Follow workflow run logs
 occ component workflowrun logs api-service -f
+
+# Print each entry as JSON
+occ component workflowrun logs api-service --namespace acme-corp -o json
+
+# Print selected workflow run log attributes
+occ component workflowrun logs api-service --namespace acme-corp -o custom-columns=timestamp,log
+```
+
+#### component releaseline
+
+Manage the [release lines](../developer-guide/deploying-applications/release-lines.md) of a component. Create or change lines by applying ReleaseLine resources with [`occ apply`](#apply). An update replaces the line's whole spec.
+
+**Aliases:** `releaselines`, `rl`
+
+##### component releaseline list
+
+List the lines of a component, `main` first, with one row per line and environment, the bound release, and whether the binding is ready.
+
+**Usage:**
+
+```bash
+occ component releaseline list COMPONENT_NAME [flags]
+```
+
+**Flags:**
+
+- `-n, --namespace` - Namespace name
+
+**Examples:**
+
+```bash
+# List release lines for a component
+occ component releaseline list my-component --namespace acme-corp
+
+# Create or update release lines from a file
+occ apply -f release-lines.yaml
+```
+
+##### component releaseline get
+
+Get a release line of a component and display its details, including its status per environment, in YAML format.
+
+**Usage:**
+
+```bash
+occ component releaseline get COMPONENT_NAME RELEASE_LINE_NAME [flags]
+```
+
+**Flags:**
+
+- `-n, --namespace` - Namespace name
+
+**Examples:**
+
+```bash
+occ component releaseline get my-component next --namespace acme-corp
+```
+
+##### component releaseline delete
+
+Delete a release line of a component. The line is undeployed from every environment, and its releases, Workload, and WorkflowRuns are removed. The component's other lines keep running.
+
+**Usage:**
+
+```bash
+occ component releaseline delete COMPONENT_NAME RELEASE_LINE_NAME [flags]
+```
+
+**Flags:**
+
+- `-n, --namespace` - Namespace name
+
+**Examples:**
+
+```bash
+occ component releaseline delete my-component next --namespace acme-corp
 ```
 
 #### component exec
@@ -1499,6 +1809,7 @@ If no command is specified after `--`, defaults to `/bin/sh`. If `--env` is not 
 - `-c, --container` - Container name (defaults to first container)
 - `-i, --stdin` - Pass stdin to the container
 - `-t, --tty` - Allocate a pseudo-TTY
+- `--release-line` - Release line of the component. Defaults to its main line
 
 **Examples:**
 
@@ -1511,26 +1822,13 @@ occ component exec my-service -n acme-corp -p online-store -- ls /app
 
 # Specify environment and container
 occ component exec my-service -n acme-corp -p online-store --env dev --container app -- curl localhost:8080/health
+
+# Shell into a pod of one release line of a component
+occ component exec my-service --release-line next -it
 ```
 
 :::info Prerequisites
-The `occ component exec` command requires WebSocket support on the control plane gateway. If using kgateway, apply the following `HTTPListenerPolicy` to enable WebSocket upgrades:
-
-```yaml
-apiVersion: gateway.kgateway.dev/v1alpha1
-kind: HTTPListenerPolicy
-metadata:
-  name: enable-websocket
-  namespace: openchoreo-control-plane
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway-default
-  upgradeConfig:
-    enabledUpgrades:
-      - websocket
-```
+The `occ component exec` command requires WebSocket support on the control plane gateway. The OpenChoreo control-plane Helm chart enables this by default (an `HTTPListenerPolicy` on the default gateway), so no manual setup is needed.
 
 The user must also have the `component:exec` permission in their authorization role.
 :::
@@ -1568,6 +1866,7 @@ occ componentrelease generate [flags]
 - `--all` - Process all resources
 - `-p, --project` - Project name
 - `-c, --component` - Component name (requires `--project`)
+- `--release-line` - One [release line](../developer-guide/deploying-applications/release-lines.md) of `--component`, or `main` for its main line. Without it, `--component` covers its main line. `--all` and `--project` cover every line of each component
 - `--output-path` - Custom output directory path
 - `--dry-run` - Preview changes without writing files
 
@@ -2034,6 +2333,8 @@ occ namespace delete acme-corp
 
 Manage observability alerts notification channels in OpenChoreo.
 
+A channel references its secret values, such as SMTP credentials and webhook header values, by the name of a SecretReference and one of its keys. Create them in the secret store of the channel's observability plane with [`occ secret create`](#secret-create) and `--target-plane ClusterObservabilityPlane/<name>` (or `ObservabilityPlane/<name>` for a namespaced plane). Referencing a Kubernetes Secret by name still works but is deprecated.
+
 **Usage:**
 
 ```bash
@@ -2044,7 +2345,7 @@ occ observabilityalertsnotificationchannel <subcommand> [flags]
 
 #### observabilityalertsnotificationchannel list
 
-List all observability alerts notification channels in a namespace.
+List all observability alerts notification channels in a namespace, with each channel's type, environment, `Ready` reason (`STATUS`), and `SecretsReady` reason (`SECRETS`). Channels that still reference Kubernetes Secrets show `DeprecatedKubernetesSecret` in the `SECRETS` column.
 
 **Usage:**
 
@@ -2182,6 +2483,36 @@ occ observabilityplane delete [OBSERVABILITYPLANE_NAME] [flags]
 occ observabilityplane delete default --namespace acme-corp
 ```
 
+#### observabilityplane logs
+
+Query [platform logs](../platform-engineer-guide/observability/platform-logs.mdx) collected by a namespace-scoped observability plane. Takes the same flags as [clusterobservabilityplane logs](#clusterobservabilityplane-logs), plus `-n, --namespace` for the OpenChoreo namespace that holds the plane resource (not the pods' namespace, which is `--pod-namespace`). Requires the cluster-scoped `platformlogs:view` permission.
+
+**Usage:**
+
+```bash
+occ observabilityplane logs [OBSERVABILITYPLANE_NAME] -n <namespace> [flags]
+```
+
+**Examples:**
+
+```bash
+# Control plane components over the last 10 minutes
+occ observabilityplane logs primary-observabilityplane --namespace acme-corp \
+  --selector openchoreo.dev/plane=controlplane --since 10m
+
+# Errors from one pod, followed
+occ op logs primary-observabilityplane -n acme-corp --pod controller-manager-7f58b689b5-pwsb5 --level ERROR -f
+
+# Print each entry as JSON
+occ observabilityplane logs primary-observabilityplane --namespace acme-corp -o json
+
+# Print selected platform log attributes
+occ observabilityplane logs primary-observabilityplane --namespace acme-corp -o custom-columns=timestamp,level,podName,log
+
+# Escape a literal period with \. and quote the argument so the shell keeps the backslash
+occ observabilityplane logs primary-observabilityplane --namespace acme-corp -o "custom-columns=labels.openchoreo\.dev/plane,log"
+```
+
 ---
 
 ### project
@@ -2295,6 +2626,7 @@ occ releasebinding generate [flags]
 - `-p, --project` - Project name
 - `-c, --component` - Component name (requires `--project`)
 - `--component-release` - Explicit component release name (only valid with `--project` and `--component`)
+- `--release-line` - One [release line](../developer-guide/deploying-applications/release-lines.md) of `--component`, or `main` for its main line. Without it, `--component` covers its main line. `--all` and `--project` cover every line of each component
 - `--output-path` - Custom output directory path
 - `--dry-run` - Preview changes without writing files
 
@@ -2454,7 +2786,7 @@ occ secret get my-secret --namespace acme-corp
 Create a secret of the specified type on a target plane. The create command groups three subcommands that share common flags:
 
 - `-n, --namespace` - Namespace name
-- `--target-plane` - Target plane in `Kind/Name` form (e.g. `DataPlane/dp-prod`)
+- `--target-plane` - Target plane in `Kind/Name` form (e.g. `DataPlane/dp-prod`). Kind is one of `DataPlane`, `ClusterDataPlane`, `WorkflowPlane`, `ClusterWorkflowPlane`, `ObservabilityPlane`, or `ClusterObservabilityPlane`
 - `--category` - Secret category: `generic` (default) or `git-credentials`
 - `--from-literal` - `key=value` literal (repeatable)
 - `--from-file` - `key=path` or `path` (repeatable). Key defaults to the filename.
@@ -2489,6 +2821,11 @@ occ secret create generic db-creds \
 occ secret create generic basic --type=kubernetes.io/basic-auth \
   --namespace acme-corp --target-plane DataPlane/dp-prod \
   --from-literal=username=admin --from-literal=password=s3cret
+
+# Create SMTP credentials for a notification channel in the observability plane's secret store
+occ secret create generic smtp-auth \
+  --namespace acme-corp --target-plane ClusterObservabilityPlane/default \
+  --from-literal=username=alerts --from-literal=password=s3cret
 
 # Create a git-credentials category secret
 occ secret create generic github-pat \
@@ -2861,6 +3198,7 @@ occ workflow logs WORKFLOW_NAME [flags]
 - `-f, --follow` - Follow the logs in real-time
 - `--since` - Only return logs newer than a relative duration (e.g., 5m, 1h, 24h)
 - `--workflowrun` - Workflow run name (defaults to latest run)
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=timestamp,log` (default `text`)
 
 **Examples:**
 
@@ -2873,6 +3211,12 @@ occ workflow logs database-migration --namespace acme-corp -f
 
 # Get logs for a specific workflow run
 occ workflow logs database-migration --workflowrun migration-run-1
+
+# Print each entry as JSON
+occ workflow logs database-migration --namespace acme-corp -o json
+
+# Print selected workflow log attributes
+occ workflow logs database-migration --namespace acme-corp -o custom-columns=timestamp,log
 ```
 
 #### workflow delete
@@ -3044,6 +3388,7 @@ occ workflowrun logs [WORKFLOW_RUN_NAME] [flags]
 - `-n, --namespace` - Namespace name
 - `-f, --follow` - Follow the logs in real-time
 - `--since` - Only return logs newer than a relative duration (e.g., 5m, 1h, 24h)
+- `-o, --output` - [Output format](#log-output-formats): `text`, `json` (one object per line), or `custom-columns=FIELD,...`. e.g. `custom-columns=timestamp,log` (default `text`)
 
 **Examples:**
 
@@ -3053,6 +3398,12 @@ occ workflowrun logs migration-run-1 --namespace acme-corp
 
 # Follow logs in real-time
 occ workflowrun logs migration-run-1 --namespace acme-corp -f
+
+# Print each entry as JSON
+occ workflowrun logs migration-run-1 --namespace acme-corp -o json
+
+# Print selected workflow run log attributes
+occ workflowrun logs migration-run-1 --namespace acme-corp -o custom-columns=timestamp,log
 ```
 
 ---
@@ -3085,6 +3436,7 @@ occ workload create [flags]
 - `-n, --namespace` - Namespace name
 - `-p, --project` - Project name
 - `-c, --component` - Component name
+- `--release-line` - [Release line](../developer-guide/deploying-applications/release-lines.md) of the component the workload belongs to. Defaults to its main line
 - `--image` - Docker image name (e.g., `product-catalog:latest`)
 - `--descriptor` - Path to the workload descriptor file
 - `-o, --output` - Output format (`yaml`)
@@ -3174,3 +3526,17 @@ occ workload delete [WORKLOAD_NAME] [flags]
 # Delete a workload
 occ workload delete my-workload --namespace acme-corp
 ```
+
+## Log output formats
+
+Log commands support `-o text` (default), `-o json` (one object per line), and `-o custom-columns=FIELD,...` to select a comma-separated list of fields.
+
+Workflow log entries have `timestamp` and `log`. Archived entries also have `level` when the logs adapter provides one.
+
+For custom columns:
+
+- Field names are case-sensitive and match the keys in the command's `-o json` output.
+- Use `.` to select nested fields, such as `metadata.podName`, and `\.` for literal periods in keys. Quote the argument to preserve the backslash, e.g. `-o "custom-columns=labels.openchoreo\.dev/plane,log"` for platform logs.
+- Missing or null fields print `-`.
+- Values are printed in the requested order, separated by tabs, with no header row.
+- Named columns (`NAME:path`) are not supported.

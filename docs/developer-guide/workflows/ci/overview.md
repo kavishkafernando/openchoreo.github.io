@@ -21,6 +21,8 @@ flowchart TD
     G -->|No| I["Minimal Workload CR created<br>with just the container image"]
 ```
 
+What the build produces is driven by the [workload descriptor](../../workload/descriptor.md) in your repository. Without one, you get a Workload CR carrying only the image.
+
 ## Configuring Your Component for CI
 
 Reference a CI workflow in your Component's `spec.workflow` field:
@@ -187,7 +189,7 @@ If your organization uses an external CI platform (e.g., Jenkins, GitHub Actions
 1. Navigate to **Create** in Backstage
 2. Select your component type and fill in **Component Metadata**
 3. In the **Build & Deploy** step, under **Deployment Source**, select **"External CI"**
-4. Optionally select your **CI Platform** (e.g., Jenkins) to enable build visibility in Backstage, and provide the **Jenkins Job Path** (e.g., `/job/my-org/job/my-service`)
+4. Optionally select your **CI Platform** (e.g., Jenkins) to enable build visibility in Backstage, and provide the **Jenkins job full name** (e.g., `my-org/my-service`, or just `my-service` for a job outside a folder — not the `/job/...` URL path)
 5. Complete the remaining steps and review
 
 The component is created without a workload. Your CI pipeline will create workloads when builds complete by calling the OpenChoreo Workload API:
@@ -234,6 +236,6 @@ When a WorkflowRun is created with component labels, the controller validates it
 
 ## What's Next
 
-- [Workload Descriptor](./workload-descriptor.md) — Customize what your build produces with a `workload.yaml` file
+- [Workload Descriptor](../../workload/descriptor.md) — Customize what your build produces with a `workload.yaml` file
 - [Auto-Build](./auto-build.md) — Trigger builds automatically on Git push
 - [Private Repository](./private-repository.md) — Configure access to private Git repositories

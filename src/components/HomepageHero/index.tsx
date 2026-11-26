@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import React from "react";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import ThemedImage from "@theme/ThemedImage";
-import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Button from "@site/src/components/common/Button";
 import styles from "./styles.module.css";
 
@@ -11,12 +10,9 @@ import styles from "./styles.module.css";
  * This is the hero section at the top of the homepage
  */
 export default function HomepageHero(): ReactNode {
-  const { siteConfig } = useDocusaurusContext();
-
   return (
-    <section className={styles.hero}>
-      <div className="container">
-        {/* Logo that changes with theme */}
+    <section className={styles.hero} data-section-bg="white">
+      <div className={`container ${styles.heroContent}`}>
         <ThemedImage
           alt="OpenChoreo Logo"
           className={styles.heroLogo}
@@ -26,14 +22,23 @@ export default function HomepageHero(): ReactNode {
           }}
         />
 
-        <h1 className={styles.heroTitle}>{siteConfig.title}</h1>
+        <h1 className={styles.heroTagline}>
+          Build your internal developer platform with OpenChoreo
+        </h1>
+        <p className={styles.heroSubtitle}>
+          Go from zero to platform, or take what you have further.
+          <br />
+          One IDP for humans and agents.
+        </p>
 
-        <h2 className={styles.heroTagline}>
-          A complete, open-source developer platform for Kubernetes
-        </h2>
-        <h3 className={styles.heroSubtitle}>
-          Ready to use from day one, for humans and agents
-        </h3>
+        <a
+          className={styles.heroCncf}
+          href="https://www.cncf.io/projects/openchoreo/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span>A CNCF Sandbox Project</span>
+        </a>
 
         {/* Call-to-action buttons */}
         <div className={styles.heroButtons}>
@@ -47,7 +52,7 @@ export default function HomepageHero(): ReactNode {
             className={styles.heroButton}
             to="https://openchoreo.dev/docs/"
           >
-            Learn More
+            Documentation
           </Button>
         </div>
       </div>

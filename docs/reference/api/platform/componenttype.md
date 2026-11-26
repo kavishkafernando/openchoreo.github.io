@@ -32,16 +32,18 @@ metadata:
 
 ### Spec Fields
 
-| Field                | Type                                        | Required | Default | Description                                                                                                 |
-| -------------------- | ------------------------------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------- |
-| `workloadType`       | string                                      | Yes      | -       | Primary workload type: `deployment`, `statefulset`, `cronjob`, `job`, `proxy`                               |
-| `allowedWorkflows`   | [[WorkflowRef](#workflowref)]               | No       | []      | Workflow references developers can use for building this component type; if empty, no workflows are allowed |
-| `parameters`         | [SchemaSection](#schemasection)             | No       | -       | Developer-facing parameter schema for components of this type                                               |
-| `environmentConfigs` | [SchemaSection](#schemasection)             | No       | -       | Per-environment configuration overrides schema                                                              |
-| `traits`             | [[ComponentTypeTrait](#componenttypetrait)] | No       | []      | Pre-configured trait instances automatically applied to all Components of this type                         |
-| `allowedTraits`      | [[TraitRef](#traitref)]                     | No       | []      | Traits that developers can attach to components of this type beyond those embedded in `traits`              |
-| `validations`        | [[ValidationRule](#validationrule)]         | No       | []      | CEL-based rules evaluated during rendering; all must pass for rendering to proceed                          |
-| `resources`          | [[ResourceTemplate](#resourcetemplate)]     | Yes      | -       | Templates for generating Kubernetes resources                                                               |
+| Field                   | Type                                            | Required | Default | Description                                                                                                   |
+| ----------------------- | ----------------------------------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `workloadType`          | string                                          | Yes      | -       | Primary workload type: `deployment`, `statefulset`, `cronjob`, `job`, `proxy`                                 |
+| `allowedWorkflows`      | [[WorkflowRef](#workflowref)]                   | No       | []      | Workflow references developers can use for building this component type; if empty, no workflows are allowed   |
+| `parameters`            | [SchemaSection](#schemasection)                 | No       | -       | Developer-facing parameter schema for components of this type                                                 |
+| `environmentConfigs`    | [SchemaSection](#schemasection)                 | No       | -       | Per-environment configuration overrides schema                                                                |
+| `traits`                | [[ComponentTypeTrait](#componenttypetrait)]     | No       | []      | Pre-configured trait instances automatically applied to all Components of this type                           |
+| `allowedTraits`         | [[TraitRef](#traitref)]                         | No       | []      | Traits that developers can attach to components of this type beyond those embedded in `traits`                |
+| `validations`           | [[ValidationRule](#validationrule)]             | No       | []      | Deprecated alias for `preRenderValidations` (identical semantics); set only one of the two                    |
+| `preRenderValidations`  | [[ValidationRule](#validationrule)]             | No       | []      | CEL-based rules evaluated before rendering against the static context; all must pass for rendering to proceed |
+| `postRenderValidations` | [[PostRenderValidation](#postrendervalidation)] | No       | []      | CEL-based rules evaluated after all traits are applied, against the final rendered resources                  |
+| `resources`             | [[ResourceTemplate](#resourcetemplate)]         | Yes      | -       | Templates for generating Kubernetes resources                                                                 |
 
 :::note
 The `workloadType` field is immutable after creation and determines the primary resource type for components of this
@@ -94,8 +96,8 @@ overlap with traits already embedded in `spec.traits`.
 
 ### ValidationRule
 
-Defines a CEL-based validation rule evaluated during rendering. All rules must evaluate to true for rendering to
-proceed.
+Defines a CEL-based validation rule evaluated before rendering, against the static context. All rules must evaluate to
+true for rendering to proceed. This is the entry shape for `preRenderValidations` and the deprecated `validations`.
 
 | Field     | Type   | Required | Description                                                   |
 | --------- | ------ | -------- | ------------------------------------------------------------- |
@@ -105,11 +107,43 @@ proceed.
 **Example:**
 
 ```yaml
-validations:
+preRenderValidations:
   - rule: ${parameters.replicas >= 1}
     message: "replicas must be at least 1"
   - rule: ${parameters.port > 0 && parameters.port <= 65535}
     message: "port must be between 1 and 65535"
+```
+
+### PostRenderValidation
+
+Asserts a CEL rule against the rendered Kubernetes resources after all traits have been applied. Each entry selects
+target resources by GVK (with an optional `where` filter), binds each match to the `resource` variable, and requires
+`rule` to evaluate to true.
+
+| Field              | Type   | Required | Default     | Description                                                                                                |
+| ------------------ | ------ | -------- | ----------- | ---------------------------------------------------------------------------------------------------------- |
+| `when`             | string | No       | -           | CEL guard `${...}` evaluated against the declaring resource's context; if false, the validation is skipped |
+| `forEach`          | string | No       | -           | CEL expression `${...}` producing a list; the validation repeats per item                                  |
+| `var`              | string | No       | -           | Loop variable name for `forEach` (required when `forEach` is set); in scope in `target.where` and `rule`   |
+| `target.group`     | string | Yes      | -           | API group of the rendered resources to select (empty string for the core group)                            |
+| `target.version`   | string | Yes      | -           | API version of the rendered resources to select                                                            |
+| `target.kind`      | string | Yes      | -           | Kind of the rendered resources to select                                                                   |
+| `target.where`     | string | No       | -           | CEL filter `${...}` over the selected resources, with `resource` bound                                     |
+| `target.mustMatch` | bool   | No       | `true`      | When true and no rendered resource matches the target, the validation fails                                |
+| `targetPlane`      | string | No       | `dataplane` | Plane whose resources are selected: `dataplane` or `observabilityplane`                                    |
+| `rule`             | string | Yes      | -           | CEL expression `${...}` evaluated with `resource` bound to each match; must evaluate to true               |
+| `message`          | string | Yes      | -           | Error message shown when the rule fails (literal string; `${...}` is not interpolated)                     |
+
+**Example:**
+
+```yaml
+postRenderValidations:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+    rule: ${resource.spec.template.spec.securityContext.runAsNonRoot == true}
+    message: "traits must not relax pod-level non-root execution"
 ```
 
 ### SchemaSection
@@ -150,6 +184,8 @@ Defines a template for generating Kubernetes resources with CEL expressions for 
 | `var`         | string | No       | -           | Variable name for `forEach` iterations (required if `forEach` is set) |
 | `template`    | object | Yes      | -           | Kubernetes resource template with CEL expressions                     |
 
+With referenced-config rollout enabled, the `openchoreo.dev/restart-on-change` annotation in a template's `metadata.annotations` decides whether a change to the rendered resource restarts the component's pods. See [Pod Rollouts](../../../platform-engineer-guide/component-types/pod-rollouts.mdx).
+
 #### CEL Expression Syntax
 
 Templates use CEL expressions enclosed in `${...}` that have access to the following context variables:
@@ -158,22 +194,24 @@ Templates use CEL expressions enclosed in `${...}` that have access to the follo
 
 Platform-computed metadata for resource generation:
 
-| Field                         | Type   | Description                                                                        |
-| ----------------------------- | ------ | ---------------------------------------------------------------------------------- |
-| `metadata.name`               | string | Base name for generated resources (e.g., `my-service-dev-a1b2c3d4`)                |
-| `metadata.namespace`          | string | Target namespace for resources                                                     |
-| `metadata.componentNamespace` | string | Target namespace of the component                                                  |
-| `metadata.componentName`      | string | Name of the component                                                              |
-| `metadata.componentUID`       | string | Unique identifier of the component                                                 |
-| `metadata.projectName`        | string | Name of the project                                                                |
-| `metadata.projectUID`         | string | Unique identifier of the project                                                   |
-| `metadata.environmentName`    | string | Name of the environment (e.g., `development`, `production`)                        |
-| `metadata.environmentUID`     | string | Unique identifier of the environment                                               |
-| `metadata.dataPlaneName`      | string | Name of the data plane                                                             |
-| `metadata.dataPlaneUID`       | string | Unique identifier of the data plane                                                |
-| `metadata.labels`             | map    | Common labels to add to all resources                                              |
-| `metadata.annotations`        | map    | Common annotations to add to all resources                                         |
-| `metadata.podSelectors`       | map    | Platform-injected selectors for pod identity (use in Deployment/Service selectors) |
+| Field                         | Type   | Description                                                                                                                              |
+| ----------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata.name`               | string | Base name for generated resources (e.g., `my-service-dev-a1b2c3d4`)                                                                      |
+| `metadata.namespace`          | string | Target namespace for resources                                                                                                           |
+| `metadata.componentNamespace` | string | Target namespace of the component                                                                                                        |
+| `metadata.componentName`      | string | Name of the component                                                                                                                    |
+| `metadata.releaseLineName`    | string | Release line being rendered (e.g., `next`). Empty for the component's main line                                                          |
+| `metadata.componentLineName`  | string | Name for the component-level objects of the line being rendered (e.g., `my-service-next-a1b2c3d4`). The component name for the main line |
+| `metadata.componentUID`       | string | Unique identifier of the component                                                                                                       |
+| `metadata.projectName`        | string | Name of the project                                                                                                                      |
+| `metadata.projectUID`         | string | Unique identifier of the project                                                                                                         |
+| `metadata.environmentName`    | string | Name of the environment (e.g., `development`, `production`)                                                                              |
+| `metadata.environmentUID`     | string | Unique identifier of the environment                                                                                                     |
+| `metadata.dataPlaneName`      | string | Name of the data plane                                                                                                                   |
+| `metadata.dataPlaneUID`       | string | Unique identifier of the data plane                                                                                                      |
+| `metadata.labels`             | map    | Common labels to add to all resources                                                                                                    |
+| `metadata.annotations`        | map    | Common annotations to add to all resources                                                                                               |
+| `metadata.podSelectors`       | map    | Platform-injected selectors for pod identity (use in Deployment/Service selectors)                                                       |
 
 ##### parameters
 
